@@ -65,7 +65,8 @@ def sample_ood(seed=None, N=3, K=2, num_ood=None):
     return sample_setting_c(seed=None, N=N, K=K, num_ood=num_ood)
 
 def sample_all(seed=None, N=3, K=2):
-    """no IID/OOD split, just sample all"""
+    """
+    no IID/OOD split, just sample all"""
     if seed is not None:
         np.random.seed(seed)
     ind = np.random.choice(np.arange(N), K, replace=False)
