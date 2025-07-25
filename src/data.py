@@ -1,4 +1,8 @@
+import torch
 import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
+import numpy as np
+
 
 # sampling functions
 
@@ -222,6 +226,10 @@ def generate_data(seed=None, n=3, k=2, m=2, D=100):
     """
     Generate dasets for IID and OOD settings.
     """
+
+# vitoria's version of generate_datasets
+
+"""
 def generate_datasets(seed=None, n=3, k=2, n_samples=100):
     '''
     Generate training and validation datasets for IID and OOD settings. 
@@ -254,3 +262,77 @@ def generate_datasets(seed=None, n=3, k=2, n_samples=100):
     val_label_iid = label_iid[n_samples//2:]
 
     return (train_Z_iid, train_Y_iid, train_label_iid), (val_Z_iid, val_Y_iid, val_label_iid), (Z_ood, Y_ood, label_ood)
+"""
+
+# my version of generate_datasets to modify paramters
+def generate_datasets( seed: int = None, n: int = 3, k: int = 2, d: int = 100, m: int = 2):
+    """
+    Generate training and validation datasets for IID and OOD settings. 
+    Training is the first half of the IID data, validation the second half.
+    OOD is generated separately.
+
+    Parameters
+    ----------
+    seed : int, optional
+        Random seed for reproducibility.
+    n : int, optional
+        Number of latent variables.
+    k : int, optional
+        Number of sources to sample.
+    D : int, optional
+        Total number of IID samples to generate.
+    m : int, optional
+        Observation dimension (compressed measurement size).
+
+    Returns
+    -------
+    (Z_train_iid, Y_train_iid, labels_train_iid),
+    (Z_val_iid,   Y_val_iid,   labels_val_iid),
+    (Z_ood,       Y_ood,       labels_ood)
+    """
+    # call generate_data with your parameters
+    (Z_iid, Y_iid, labels_iid), (Z_ood, Y_ood, labels_ood) = generate_data(
+        seed=seed,
+        n=n,
+        k=k,
+        D=d,
+        m=m,
+    )
+
+    # split IID into train / validation
+    half = d // 2
+    train = (Z_iid[:half], Y_iid[:half], labels_iid[:half])
+    val   = (Z_iid[half:], Y_iid[half:], labels_iid[half:])
+
+    return train, val, (Z_ood, Y_ood, labels_ood)
+
+
+# from original sae.py code
+def data_setup(
+    Z_iid, Y_iid,
+    val_Z_iid,   val_Y_iid,
+    Z_ood,       Y_ood,
+    batch_size=64,
+    device=None
+):
+    """
+    1) Chooses GPU if available.
+    2) Converts NumPy arrays to torch tensors on that device.
+    3) Builds train DataLoader (Y→Z for supervised; unsup ignores Z).
+    4) Returns device, loader, and IID/OOD tensors.
+    """
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # IID tensors & loader
+    inputs_iid  = torch.tensor(Y_iid, dtype=torch.float32, device=device)
+    targets_iid = torch.tensor(Z_iid, dtype=torch.float32, device=device)
+    train_loader = DataLoader(TensorDataset(inputs_iid, targets_iid),batch_size=batch_size,shuffle=True)
+
+    # OOD tensors
+    inputs_ood  = torch.tensor(Y_ood, dtype=torch.float32, device=device)
+    targets_ood = torch.tensor(Z_ood, dtype=torch.float32, device=device)
+
+    return device, train_loader, inputs_iid, targets_iid, inputs_ood, targets_ood
+
+
