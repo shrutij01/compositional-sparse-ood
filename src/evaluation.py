@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from scipy.stats import pearsonr, spearmanr
+from scipy.optimize import linear_sum_assignment
 
 
 def eval_codes(encoder, inputs_iid, inputs_ood, label_iid, label_ood):
@@ -28,6 +29,24 @@ def mean_corr(z_pred, z_true, method='pearson'):
         else:
             corrs.append(spearmanr(z_pred[i], z_true[i])[0])
     return np.mean(corrs)
+
+
+def compute_mcc(correlations, return_ind=False):
+    assert correlations.shape[0] == correlations.shape[1]
+    if type(correlations) == np.ndarray:
+        cost = - np.abs(correlations)
+    elif type(correlations) == torch.Tensor:
+        cost = - np.abs(correlations.detach().cpu().numpy())
+    else:
+        raise ValueError("Type %s not recognized" % type(correlations))
+
+    ind = [(row_ind, col_ind) for (row_ind, col_ind) in zip(*linear_sum_assignment(cost))]
+    mcc = np.mean([abs(correlations[i, j]) for i, j in ind])
+
+    if return_ind:
+        return mcc, ind
+    else:
+        return mcc
 
 
 
