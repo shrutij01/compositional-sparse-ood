@@ -189,7 +189,7 @@ def generate_matrix(m=3, n=2, seed=None):
     A /= np.linalg.norm(A, axis=0, keepdims=True) # normalize columns
     return A
 
-def generate_data(seed=None, n=3, k=2, m=2, D=100):
+def generate_data(seed=None, n=3, k=2, m=2, n_samples=100):
     """
     Generate data for high-dimensional setting. 
     Generates IID and OOD data based on the specified parameters.
@@ -213,59 +213,18 @@ def generate_data(seed=None, n=3, k=2, m=2, D=100):
 
     A = generate_matrix(m=m, n=n, seed=seed)  # generate random matrix A
 
-    Z_iid = np.array([sample_iid(n=n, k=k) for _ in range(D)])
+    Z_iid = np.array([sample_iid(n=n, k=k) for _ in range(n_samples)])
     Y_iid = Z_iid @ A.T
     label_iid = Z_iid[:, 0] > .5
 
-    Z_ood = np.array([sample_ood(n=n, k=k) for _ in range(D//2)])
+    Z_ood = np.array([sample_ood(n=n, k=k) for _ in range(n_samples//2)])
     Y_ood = Z_ood @ A.T
     label_ood = Z_ood[:, 0] > .5
 
     return (Z_iid, Y_iid, label_iid), (Z_ood, Y_ood, label_ood)
 
-    """
-    Generate dasets for IID and OOD settings.
-    """
 
-# vitoria's version of generate_datasets
-
-"""
-def generate_datasets(seed=None, n=3, k=2, n_samples=100):
-    '''
-    Generate training and validation datasets for IID and OOD settings. 
-    The training set is the first half of the IID data, and the validation set is the second half.
-    The OOD data is generated separately.       
-
-    Parameters:
-    seed: int, optional
-        Random seed for reproducibility.
-    n: int, optional
-        Number of latent variables.
-    k: int, optional
-        Number of sources to sample.
-    D: int, optional
-        Total number of samples to generate.                
-
-    Returns:
-    tuple:
-        - (train_Z_iid, train_Y_iid, train_label_iid): Training dataset for IID.
-        - (val_Z_iid, val_Y_iid, val_label_iid): Validation dataset for IID.
-        - (Z_ood, Y_ood, label_ood): OOD dataset. 
-    '''
-    (Z_iid, Y_iid, label_iid), (Z_ood, Y_ood, label_ood) = generate_data(seed=42, n=3, k=2, D=100, m=2)
-    train_Z_iid = Z_iid[0:n_samples//2]
-    train_Y_iid = Y_iid[0:n_samples//2]
-    train_label_iid = label_iid[0:n_samples//2]
-
-    val_Z_iid = Z_iid[n_samples//2:]
-    val_Y_iid = Y_iid[n_samples//2:]
-    val_label_iid = label_iid[n_samples//2:]
-
-    return (train_Z_iid, train_Y_iid, train_label_iid), (val_Z_iid, val_Y_iid, val_label_iid), (Z_ood, Y_ood, label_ood)
-"""
-
-# my version of generate_datasets to modify paramters
-def generate_datasets( seed: int = None, n: int = 3, k: int = 2, d: int = 100, m: int = 2):
+def generate_datasets( seed: int = None, n: int = 3, k: int = 2, n_samples: int = 100, m: int = 2):
     """
     Generate training and validation datasets for IID and OOD settings. 
     Training is the first half of the IID data, validation the second half.
@@ -295,16 +254,17 @@ def generate_datasets( seed: int = None, n: int = 3, k: int = 2, d: int = 100, m
         seed=seed,
         n=n,
         k=k,
-        D=d,
+        n_samples=n_samples,
         m=m,
     )
 
     # split IID into train / validation
-    half = d // 2
+    half = n_samples // 2
     train = (Z_iid[:half], Y_iid[:half], labels_iid[:half])
-    val   = (Z_iid[half:], Y_iid[half:], labels_iid[half:])
+    val = (Z_iid[half:], Y_iid[half:], labels_iid[half:])
+    test = (Z_ood, Y_ood, labels_ood)
 
-    return train, val, (Z_ood, Y_ood, labels_ood)
+    return train, val, test
 
 
 # from original sae.py code
