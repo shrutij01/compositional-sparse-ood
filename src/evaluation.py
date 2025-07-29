@@ -21,17 +21,20 @@ def eval_codes(encoder, inputs_iid, inputs_ood, label_iid, label_ood):
     return Zi, Zo, acc_i, acc_o
 
 
-def mean_corr(z_pred, z_true, method='pearson'):
-    corrs = []
-    for i in range(z_true.shape[0]):
-        if method == 'pearson':
-            corrs.append(pearsonr(z_pred[i], z_true[i])[0])
-        else:
-            corrs.append(spearmanr(z_pred[i], z_true[i])[0])
-    return np.mean(corrs)
-
-
 def compute_mcc(correlations, return_ind=False):
+    """
+    David's MCC implementation.
+
+    Args:
+        correlations (_type_): _description_
+        return_ind (bool, optional): _description_. Defaults to False.
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        _type_: _description_
+    """
     assert correlations.shape[0] == correlations.shape[1]
     if type(correlations) == np.ndarray:
         cost = - np.abs(correlations)
@@ -47,7 +50,6 @@ def compute_mcc(correlations, return_ind=False):
         return mcc, ind
     else:
         return mcc
-
 
 
 def as_numpy(x):
