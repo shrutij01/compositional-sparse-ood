@@ -200,14 +200,15 @@ def generate_data(seed=None, n=3, k=2, m=2, n_samples=100):
         Number of latent variables.
     k: int, optional
         Number of sources to sample.    
-    D: int, optional
+    n_samples: int, optional
         Total number of samples to generate.
+    m: int, optional
+        Number of observed variables.
     Returns:
     tuple:      
         - (Z_iid, Y_iid, label_iid): IID dataset.
         - (Z_ood, Y_ood, label_ood): OOD dataset.
     """
-    # generate data
     if seed is not None:
         np.random.seed(seed)
 
@@ -221,10 +222,10 @@ def generate_data(seed=None, n=3, k=2, m=2, n_samples=100):
     Y_ood = Z_ood @ A.T
     label_ood = Z_ood[:, 0] > .5
 
-    return (Z_iid, Y_iid, label_iid), (Z_ood, Y_ood, label_ood)
+    return (Z_iid, Y_iid, label_iid), (Z_ood, Y_ood, label_ood), A
 
 
-def generate_datasets( seed: int = None, n: int = 3, k: int = 2, n_samples: int = 100, m: int = 2):
+def generate_datasets(seed=None, n=3, k=2, n_samples=100, m=None):
     """
     Generate training and validation datasets for IID and OOD settings. 
     Training is the first half of the IID data, validation the second half.
@@ -238,8 +239,6 @@ def generate_datasets( seed: int = None, n: int = 3, k: int = 2, n_samples: int 
         Number of latent variables.
     k : int, optional
         Number of sources to sample.
-    D : int, optional
-        Total number of IID samples to generate.
     m : int, optional
         Observation dimension (compressed measurement size).
 
@@ -249,22 +248,40 @@ def generate_datasets( seed: int = None, n: int = 3, k: int = 2, n_samples: int 
     (Z_val_iid,   Y_val_iid,   labels_val_iid),
     (Z_ood,       Y_ood,       labels_ood)
     """
-    # call generate_data with your parameters
-    (Z_iid, Y_iid, labels_iid), (Z_ood, Y_ood, labels_ood) = generate_data(
-        seed=seed,
-        n=n,
-        k=k,
-        n_samples=n_samples,
-        m=m,
-    )
+    # # call generate_data with your parameters
+    # (Z_iid, Y_iid, labels_iid), (Z_ood, Y_ood, labels_ood) = generate_data(
+    #     seed=seed,
+    #     n=n,
+    #     k=k,
+    #     n_samples=n_samples,
+    #     m=m,
+    # )
 
-    # split IID into train / validation
-    half = n_samples // 2
-    train = (Z_iid[:half], Y_iid[:half], labels_iid[:half])
-    val = (Z_iid[half:], Y_iid[half:], labels_iid[half:])
-    test = (Z_ood, Y_ood, labels_ood)
+    # # split IID into train / validation
+    # half = n_samples // 2
+    # train = (Z_iid[:half], Y_iid[:half], labels_iid[:half])
+    # val = (Z_iid[half:], Y_iid[half:], labels_iid[half:])
+    # test = (Z_ood, Y_ood, labels_ood)
 
-    return train, val, test
+    # return train, val, test
+    if seed is not None:
+        np.random.seed(seed)
+    
+    if m is None:
+        m = int(np.ceil(k * np.log(n/k) * 1))
+        print("m = ", m)
+
+    (Z_iid, Y_iid, label_iid), (Z_ood, Y_ood, label_ood), A = generate_data(seed=seed, n=n, k=k, n_samples=n_samples, m=m)
+
+    train_Z_iid = Z_iid[0:n_samples//2]
+    train_Y_iid = Y_iid[0:n_samples//2]
+    train_label_iid = label_iid[0:n_samples//2]
+
+    val_Z_iid = Z_iid[n_samples//2:]
+    val_Y_iid = Y_iid[n_samples//2:]
+    val_label_iid = label_iid[n_samples//2:]
+
+    return (train_Z_iid, train_Y_iid, train_label_iid), (val_Z_iid, val_Y_iid, val_label_iid), (Z_ood, Y_ood, label_ood), A
 
 
 # from original sae.py code
