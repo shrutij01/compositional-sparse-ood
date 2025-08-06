@@ -53,9 +53,6 @@ steps = 100000
 best_loss = np.inf
 best_D, best_Z = None, None
 
-# d_x = train_Y_iid.shape[1]
-# d_z = train_Z_iid.shape[1]
-
 run = wandb.init(
     project="sparse_ood",  # Specify your project
     config={                        # Track hyperparameters and metadata
@@ -81,7 +78,6 @@ for rep in range(num_seed):
     log_Z = torch.randn(n_points//2, n, dtype=torch.float32, device=device).requires_grad_()
     # D = torch.randn(n, m, dtype=torch.float32, device=device).requires_grad_() # unsupervised
     D = torch.tensor(A.T, dtype=torch.float32, device=device) # supervised
-    # print("D shape", D.shape)
     optim = torch.optim.Adam([log_Z, D], lr=lr)
 
     for i in tqdm(range(steps)):
@@ -90,7 +86,6 @@ for rep in range(num_seed):
         mse = torch.mean((inputs - rec)**2)
         l1 = torch.mean(torch.abs(Z) * torch.linalg.norm(D, dim=1))
         loss = mse + lambda_p * l1
-        # print('loss', loss.item())
             
         optim.zero_grad()
         loss.backward()
