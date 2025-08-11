@@ -56,7 +56,9 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run):
     return loss, mcc_iid, best_Z, best_D
 
 def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, run):
-    best_D, best_Z = None, None
+    Ds = []
+    Zs = []
+    mccs = []
     for rep in range(num_seed):
         torch.manual_seed(seed + rep)
 
@@ -67,11 +69,15 @@ def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A,
 
         loss, mcc_iid, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run)
 
-    return best_D, best_Z
+        Ds.append(D)
+        Zs.append(Z)
+        mccs.append(mcc_iid)
+    return Ds, Zs, mccs
 
 def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, inputs, optim, train_Z_iid, run, m):
-    best_loss = np.inf
-    best_D, best_Z = None, None
+    Ds = []
+    Zs = []
+    mccs = []
     for rep in range(num_seed):
         torch.manual_seed(seed + rep)
 
@@ -82,4 +88,8 @@ def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, 
 
         loss, mcc_iid, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run)
 
-    return best_D, best_Z
+        Ds.append(D)
+        Zs.append(Z)
+        mccs.append(mcc_iid)
+
+    return Ds, Zs, mccs

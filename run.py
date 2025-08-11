@@ -13,6 +13,8 @@ from src.trainers import train_supervised_coding, train_unsupervised_coding
 
 import wandb
 
+import pandas as pd
+
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description='Train sparse coding model for OOD detection')
@@ -99,13 +101,21 @@ def main():
     inputs = torch.tensor(train_Y_iid, dtype=torch.float32, device=device)
 
     if args.supervised:
-        best_D, best_Z = train_supervised_coding(
+        best_D, best_Z, mccs = train_supervised_coding(
                 args.seed, args.num_seed, args.lambda_p, args.lr, args.steps, 
                 args.n, args.n_points, A, inputs, optim, train_Z_iid, run)
     else:
-        best_D, best_Z = train_unsupervised_coding(
+        best_D, best_Z, mccs = train_unsupervised_coding(
             args.seed, args.num_seed, args.lambda_p, args.lr, args.steps, 
             args.n, args.n_points, inputs, optim, train_Z_iid, run, args.m)
+        
+    df = pd.DataFrame()
+    df["mcc"] = mccs
+    # df["D"] = best_D
+    # df["z"] = best_Z
+    df.to_csv("results/results.csv", index=False)
+    np.save("results/z.npy", best_Z)
+    np.save("results/D.npy", best_D)
 
 if __name__ == "__main__":
     main()
