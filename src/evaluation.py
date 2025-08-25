@@ -62,3 +62,13 @@ def save_z_arrays(sup_iid, sup_ood, unsup_iid, unsup_ood, prefix='Z'):
     np.save(f"{prefix}_unsup_iid.npy", unsup_iid)
     np.save(f"{prefix}_unsup_ood.npy", unsup_ood)
     print("Saved Z arrays to disk.")
+
+
+def count_nonzero_close(arr, tol=1e-4, axis=None):
+    # Create a boolean mask where True indicates elements close to zero
+    close_to_zero_mask = np.isclose(arr, 0, atol=tol)
+
+    # Count the number of elements close to zero
+    count_nonzero_close = np.count_nonzero(~close_to_zero_mask, axis=axis)
+
+    return count_nonzero_close

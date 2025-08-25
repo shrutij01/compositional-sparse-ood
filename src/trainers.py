@@ -9,6 +9,7 @@ from tqdm import tqdm
 import torch
 
 from src.mcc import mean_corr_coef as mcc
+from src.evaluation import count_nonzero_close
 
 import wandb
 
@@ -20,11 +21,11 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run, true_
     best_loss = np.inf
     best_D, best_Z = None, None
 
-    # print("shape", train_Z_iid.shape)
     # compute the l0 norm for each z_i (across columns), 
     # then take mean for all samples
     l0_norm_train_z_iid = np.count_nonzero(train_Z_iid, axis=1).mean()
     print(f"L0 'norm' of training Z (iid): {l0_norm_train_z_iid}")
+
     l0_norm_val_z_iid = np.count_nonzero(val_Z_iid, axis=1).mean()
     print(f"L0 'norm' of validation Z (iid): {l0_norm_val_z_iid}")
 
@@ -54,7 +55,7 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run, true_
             with torch.no_grad():
                 mcc_iid = mcc(Z.detach().cpu().numpy(), train_Z_iid)
                 mcs_D = mcc(D.detach().cpu().numpy(), true_A.T, method='cos')
-                l0_norm_rec_z = np.count_nonzero(Z.detach().cpu().numpy(), axis=1).mean()
+                l0_norm_rec_z = count_nonzero_close(Z.detach().cpu().numpy(), axis=1).mean()
                 # print(f"L0 'norm' of reconstructed Z: {l0_norm_rec_z}")
             log_dict = {
                 "loss": loss.item(),
@@ -62,16 +63,16 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run, true_
                 "l1": l1.item(),
                 "step": i,
                 "mcc": mcc_iid.item(),
-                "mcc_D": mcs_D.item(),
+                "mcs_D": mcs_D.item(),
                 "l0_norm_rec_z": l0_norm_rec_z.item()
             }
             if val_loss is not None:
                 log_dict["val_loss"] = val_loss.item()
-                val_mcc = mcc(Z.detach().cpu().numpy(), val_Z_iid)
-                log_dict["val_mcc"] = val_mcc.item()
+                # val_mcc = mcc(Z.detach().cpu().numpy(), val_Z_iid)
+                # log_dict["val_mcc"] = val_mcc.item()
             if run is not None:
                 run.log(log_dict)
-            print(log_dict)
+            # print(log_dict)
 
         # early stopping
         if i > 10000:

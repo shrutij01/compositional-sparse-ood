@@ -40,7 +40,7 @@ def parse_args():
                        help='Learning rate (default: 1e-3)')
     parser.add_argument('--steps', type=int, default=100000, 
                        help='Number of training steps (default: 100000)')
-    
+
     # Model parameters
     parser.add_argument('--supervised', type=bool, default=False, 
                        help='Supervised or unsupervised dictionary learning (default: False)')
