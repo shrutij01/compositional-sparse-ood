@@ -99,19 +99,21 @@ def main():
         run = None
 
     inputs = torch.tensor(train_Y_iid, dtype=torch.float32, device=device)
+    val_inputs=torch.tensor(val_Y_iid, dtype=torch.float32, device=device)
 
     if args.supervised:
-        best_D, best_Z, mccs, l0s = train_supervised_coding(
+        best_D, best_Z, mccs, l0s, losses = train_supervised_coding(
                 args.seed, args.num_seed, args.lambda_p, args.lr, args.steps, 
-                args.n, args.n_points, A, inputs, optim, train_Z_iid, run, val_inputs=torch.tensor(val_Y_iid, dtype=torch.float32, device=device), val_Z_iid=val_Z_iid)
+                args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=val_inputs, val_Z_iid=val_Z_iid)
     else:
-        best_D, best_Z, mccs, l0s = train_unsupervised_coding(
+        best_D, best_Z, mccs, l0s, losses = train_unsupervised_coding(
             args.seed, args.num_seed, args.lambda_p, args.lr, args.steps, 
-            args.n, args.n_points, A, inputs, optim, train_Z_iid, run, args.m, val_inputs=torch.tensor(val_Y_iid, dtype=torch.float32, device=device), val_Z_iid=val_Z_iid)
-        
+            args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, args.m, val_inputs=val_inputs, val_Z_iid=val_Z_iid)
+
     df = pd.DataFrame()
     df["mcc"] = mccs
     df["l0"] = l0s
+    df["loss"] = losses
     # df["D"] = best_D
     # df["z"] = best_Z
     df.to_csv("results/results.csv", index=False)

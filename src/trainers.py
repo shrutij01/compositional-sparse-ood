@@ -1,3 +1,4 @@
+from json import encoder
 import numpy as np
 
 from warnings import simplefilter
@@ -9,7 +10,7 @@ from tqdm import tqdm
 import torch
 
 from src.mcc import mean_corr_coef as mcc
-from src.evaluation import count_nonzero_close
+from src.evaluation import count_nonzero_close, downstream_accuracy, accuracy_iid, accuracy_ood, accuracy_best_z_iid, accuracy_best_z_ood
 
 import wandb
 
@@ -17,7 +18,7 @@ wandb.login()
 
 device = torch.device('cuda')
 
-def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run, true_A, val_inputs=None, val_Z_iid=None):
+def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, true_A, val_inputs=None, val_Z_iid=None):
     best_loss = np.inf
     best_D, best_Z = None, None
 
@@ -70,6 +71,15 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run, true_
                 log_dict["val_loss"] = val_loss.item()
                 # val_mcc = mcc(Z.detach().cpu().numpy(), val_Z_iid)
                 # log_dict["val_mcc"] = val_mcc.item()
+
+            ## training accuracy
+            with torch.no_grad():
+                acc_iid_all, _ = accuracy_iid(Z.cpu().detach().numpy(), train_label_iid)
+                log_dict["acc_iid_all"] = acc_iid_all
+
+                acc_iid_best, _, _ = accuracy_best_z_iid(train_label_iid, Z.cpu().detach().numpy())
+                log_dict["acc_iid_best"] = acc_iid_best
+
             if run is not None:
                 run.log(log_dict)
             # print(log_dict)
@@ -85,11 +95,12 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run, true_
 
     return loss, mcc_iid, l0_norm_rec_z, best_Z, best_D
 
-def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, run, val_inputs=None, val_Z_iid=None):
+def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=None, val_Z_iid=None):
     Ds = []
     Zs = []
     mccs = []
     l0s = []
+    losses = []
     for rep in range(num_seed):
         torch.manual_seed(seed + rep)
 
@@ -98,19 +109,21 @@ def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A,
         D = torch.tensor(A.T, dtype=torch.float32, device=device) # supervised
         optim = torch.optim.Adam([log_Z, D], lr=lr)
 
-        loss, mcc_iid, l0_norm_rec_z, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run, A, val_inputs, val_Z_iid)
+        loss, mcc_iid, l0_norm_rec_z, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, A, val_inputs, val_Z_iid)
 
         Ds.append(D)
         Zs.append(Z)
         mccs.append(mcc_iid)
         l0s.append(l0_norm_rec_z)
-    return Ds, Zs, mccs, l0s
+        losses.append(loss.item())
+    return Ds, Zs, mccs, l0s, losses
 
-def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, run, m, val_inputs=None, val_Z_iid=None):
+def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, m, val_inputs=None, val_Z_iid=None):
     Ds = []
     Zs = []
     mccs = []
     l0s = []
+    losses = []
     for rep in range(num_seed):
         torch.manual_seed(seed + rep)
 
@@ -119,14 +132,15 @@ def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, 
         D = torch.randn(n, m, dtype=torch.float32, device=device).requires_grad_() # unsupervised
         optim = torch.optim.Adam([log_Z, D], lr=lr)
 
-        loss, mcc_iid, l0_norm_rec_z, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, run, A, val_inputs, val_Z_iid)
+        loss, mcc_iid, l0_norm_rec_z, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, A, val_inputs, val_Z_iid)
 
         Ds.append(D)
         Zs.append(Z)
         mccs.append(mcc_iid)
         l0s.append(l0_norm_rec_z)
+        losses.append(loss.item())
 
     # l0_norm_rec_z = np.count_nonzero(Z, axis=1).mean()
     # print(f"L0 'norm' of reconstructed Z: {l0_norm_rec_z}")
 
-    return Ds, Zs, mccs, l0s
+    return Ds, Zs, mccs, l0s, losses
