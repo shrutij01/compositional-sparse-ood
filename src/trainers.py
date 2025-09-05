@@ -150,12 +150,9 @@ def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, 
 
     _, z_ood, _, _, _ = train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, D.T, Y_ood, optim, true_Z_ood, label_ood, run)
 
-    print("Z shape", Z.shape)
-    print("z_ood shape", z_ood.shape)
+    acc_iid_all, acc_ood_all = downstream_accuracy(Z, z_ood[0], train_label_iid, label_ood)
 
-    acc_iid_all, acc_ood_all = downstream_accuracy(Z, z_ood, train_label_iid, label_ood)
-
-    acc_iid_best, acc_ood_best = accuracy_best_all(train_label_iid, label_ood, Z, z_ood)
+    acc_iid_best, acc_ood_best = accuracy_best_all(train_label_iid, label_ood, Z, z_ood[0])
 
     print(f"Downstream accuracy (iid, ood) using all data: {acc_iid_all}, {acc_ood_all}")
     print(f"Downstream accuracy (iid, ood) using best z: {acc_iid_best}, {acc_ood_best}")
