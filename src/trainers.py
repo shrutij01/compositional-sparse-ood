@@ -10,7 +10,7 @@ from tqdm import tqdm
 import torch
 
 from src.mcc import mean_corr_coef as mcc
-from src.evaluation import count_nonzero_close, downstream_accuracy, accuracy_iid, accuracy_ood, accuracy_best_z_iid, accuracy_best_z_ood
+from src.evaluation import count_nonzero_close, downstream_accuracy, accuracy_iid, accuracy_best_z_iid, accuracy_best_all
 
 import wandb
 
@@ -27,8 +27,11 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_labe
     l0_norm_train_z_iid = np.count_nonzero(train_Z_iid, axis=1).mean()
     print(f"L0 'norm' of training Z (iid): {l0_norm_train_z_iid}")
 
-    l0_norm_val_z_iid = np.count_nonzero(val_Z_iid, axis=1).mean()
-    print(f"L0 'norm' of validation Z (iid): {l0_norm_val_z_iid}")
+    if val_Z_iid is not None:
+        l0_norm_val_z_iid = np.count_nonzero(val_Z_iid, axis=1).mean()
+        print(f"L0 'norm' of validation Z (iid): {l0_norm_val_z_iid}")
+
+    ind_iid = train_Z_iid.std(0) > 0
 
     for i in tqdm(range(steps)):
         Z = torch.nn.functional.softplus(log_Z)
@@ -54,7 +57,7 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_labe
         # log and compute every 100 epochs
         if (i % 100 == 0):
             with torch.no_grad():
-                mcc_iid = mcc(Z.detach().cpu().numpy(), train_Z_iid)
+                mcc_iid = mcc(Z.detach().cpu().numpy(), train_Z_iid[:, ind_iid])
                 mcs_D = mcc(D.detach().cpu().numpy(), true_A.T, method='cos')
                 l0_norm_rec_z = count_nonzero_close(Z.detach().cpu().numpy(), axis=1).mean()
                 # print(f"L0 'norm' of reconstructed Z: {l0_norm_rec_z}")
@@ -116,9 +119,11 @@ def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A,
         mccs.append(mcc_iid)
         l0s.append(l0_norm_rec_z)
         losses.append(loss.item())
+
+    
     return Ds, Zs, mccs, l0s, losses
 
-def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, m, val_inputs=None, val_Z_iid=None):
+def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, m, Y_ood, label_ood, true_Z_ood, val_inputs=None, val_Z_iid=None):
     Ds = []
     Zs = []
     mccs = []
@@ -142,5 +147,17 @@ def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, 
 
     # l0_norm_rec_z = np.count_nonzero(Z, axis=1).mean()
     # print(f"L0 'norm' of reconstructed Z: {l0_norm_rec_z}")
+
+    _, z_ood, _, _, _ = train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, D.T, Y_ood, optim, true_Z_ood, label_ood, run)
+
+    print("Z shape", Z.shape)
+    print("z_ood shape", z_ood.shape)
+
+    acc_iid_all, acc_ood_all = downstream_accuracy(Z, z_ood, train_label_iid, label_ood)
+
+    acc_iid_best, acc_ood_best = accuracy_best_all(train_label_iid, label_ood, Z, z_ood)
+
+    print(f"Downstream accuracy (iid, ood) using all data: {acc_iid_all}, {acc_ood_all}")
+    print(f"Downstream accuracy (iid, ood) using best z: {acc_iid_best}, {acc_ood_best}")
 
     return Ds, Zs, mccs, l0s, losses

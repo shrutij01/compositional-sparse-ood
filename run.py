@@ -10,6 +10,7 @@ simplefilter("ignore", category=ConvergenceWarning)
 from src.data import generate_datasets
 
 from src.trainers import train_supervised_coding, train_unsupervised_coding
+from src.evaluation import downstream_accuracy, accuracy_best_all
 
 import wandb
 
@@ -100,15 +101,17 @@ def main():
 
     inputs = torch.tensor(train_Y_iid, dtype=torch.float32, device=device)
     val_inputs=torch.tensor(val_Y_iid, dtype=torch.float32, device=device)
+    Y_ood=torch.tensor(Y_ood, dtype=torch.float32, device=device)
 
     if args.supervised:
         best_D, best_Z, mccs, l0s, losses = train_supervised_coding(
                 args.seed, args.num_seed, args.lambda_p, args.lr, args.steps, 
                 args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=val_inputs, val_Z_iid=val_Z_iid)
     else:
+
         best_D, best_Z, mccs, l0s, losses = train_unsupervised_coding(
             args.seed, args.num_seed, args.lambda_p, args.lr, args.steps, 
-            args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, args.m, val_inputs=val_inputs, val_Z_iid=val_Z_iid)
+            args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, args.m, Y_ood, label_ood, Z_ood, val_inputs=val_inputs, val_Z_iid=val_Z_iid)
 
     df = pd.DataFrame()
     df["mcc"] = mccs
