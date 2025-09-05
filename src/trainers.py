@@ -151,10 +151,16 @@ def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, 
     _, z_ood, _, _, _ = train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, D.T, Y_ood, optim, true_Z_ood, label_ood, run)
 
     acc_iid_all, acc_ood_all = downstream_accuracy(Z, z_ood[0], train_label_iid, label_ood)
-
     acc_iid_best, acc_ood_best = accuracy_best_all(train_label_iid, label_ood, Z, z_ood[0])
 
-    print(f"Downstream accuracy (iid, ood) using all data: {acc_iid_all}, {acc_ood_all}")
-    print(f"Downstream accuracy (iid, ood) using best z: {acc_iid_best}, {acc_ood_best}")
+    # print(f"Downstream accuracy (iid, ood) using all data: {acc_iid_all}, {acc_ood_all}")
+    # print(f"Downstream accuracy (iid, ood) using best z: {acc_iid_best}, {acc_ood_best}")
 
-    return Ds, Zs, mccs, l0s, losses
+    accuracy_dict = {
+        'acc_iid_all': acc_iid_all,
+        'acc_ood_all': acc_ood_all,
+        'acc_iid_best': acc_iid_best,
+        'acc_ood_best': acc_ood_best        
+    }
+
+    return Ds, Zs, mccs, l0s, losses, accuracy_dict

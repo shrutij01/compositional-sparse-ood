@@ -107,9 +107,9 @@ def main():
         best_D, best_Z, mccs, l0s, losses = train_supervised_coding(
                 args.seed, args.num_seed, args.lambda_p, args.lr, args.steps, 
                 args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=val_inputs, val_Z_iid=val_Z_iid)
+        accuracy_dict = None
     else:
-
-        best_D, best_Z, mccs, l0s, losses = train_unsupervised_coding(
+        best_D, best_Z, mccs, l0s, losses, accuracy_dict = train_unsupervised_coding(
             args.seed, args.num_seed, args.lambda_p, args.lr, args.steps, 
             args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, args.m, Y_ood, label_ood, Z_ood, val_inputs=val_inputs, val_Z_iid=val_Z_iid)
 
@@ -122,6 +122,11 @@ def main():
     df.to_csv("results/results.csv", index=False)
     np.save("results/z.npy", best_Z)
     np.save("results/D.npy", best_D)
+
+    # Save accuracy_dict if present
+    if accuracy_dict is not None:
+        acc_df = pd.DataFrame([accuracy_dict])
+        acc_df.to_csv("results/accuracy.csv", index=False)
 
 if __name__ == "__main__":
     main()
