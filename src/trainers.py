@@ -148,7 +148,7 @@ def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, 
     # l0_norm_rec_z = np.count_nonzero(Z, axis=1).mean()
     # print(f"L0 'norm' of reconstructed Z: {l0_norm_rec_z}")
 
-    _, z_ood, _, _, _ = train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, D.T, Y_ood, optim, true_Z_ood, label_ood, run)
+    _, z_ood, _, _, _ = train_supervised_coding(seed, 1, lambda_p, lr, steps, n, n_points, D.T, Y_ood, optim, true_Z_ood, label_ood, run)
 
     acc_iid_all, acc_ood_all = downstream_accuracy(Z, z_ood[0], train_label_iid, label_ood)
     acc_iid_best, acc_ood_best = accuracy_best_all(train_label_iid, label_ood, Z, z_ood[0])
