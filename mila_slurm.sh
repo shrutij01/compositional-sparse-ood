@@ -10,4 +10,4 @@ module load anaconda/3
 #Load python environment
 source activate research
 
-python run.py --num_seed=10
+python run.py --steps=5 --lambda_p $1 
