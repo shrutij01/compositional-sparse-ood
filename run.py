@@ -124,7 +124,7 @@ def main():
                 args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, args.m, Y_ood, label_ood, Z_ood, val_inputs=val_inputs, val_Z_iid=val_Z_iid, use_adaptivelr=not args.no_adaptivelr)
 
         # Organize results by seed and lambda_p
-        lambda_str = f"{lambda_p:.0e}" if lambda_p < 1 else str(lambda_p)
+        lambda_str = f"{args.lambda_p:.0e}" if args.lambda_p < 1 else str(args.lambda_p)
         result_dir = f"results/seed_{actual_seed}/lambda_{lambda_str}"
         os.makedirs(result_dir, exist_ok=True)
 
