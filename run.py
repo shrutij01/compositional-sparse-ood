@@ -70,12 +70,18 @@ def main():
     # Get the number of available GPUs
     num_gpus = torch.cuda.device_count()
     print(f"Number of available GPUs: {num_gpus}")
-    for i in range(num_gpus):
-        gpu_name = torch.cuda.get_device_name(i)
-        gpu_type = torch.cuda.get_device_capability(i)
-        print(f"GPU {i}: {gpu_name} ({gpu_type[0]}.{gpu_type[1]})")
+    if num_gpus > 0:
+        for i in range(num_gpus):
+            gpu_name = torch.cuda.get_device_name(i)
+            gpu_type = torch.cuda.get_device_capability(i)
+            print(f"GPU {i}: {gpu_name} ({gpu_type[0]}.{gpu_type[1]})")
 
-    device = torch.device(args.device)
+    # Use CPU if CUDA is not available or if specified
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        print("CUDA requested but not available, falling back to CPU")
+        device = torch.device('cpu')
+    else:
+        device = torch.device(args.device if torch.cuda.is_available() or args.device == 'cpu' else 'cpu')
 
     if args.m is None:
         args.m = int(np.ceil(args.k * np.log(args.n/args.k) * 1))
@@ -113,26 +119,23 @@ def main():
         val_inputs = torch.tensor(val_Y_iid, dtype=torch.float32, device=device)
         Y_ood = torch.tensor(Y_ood, dtype=torch.float32, device=device)
 
-        if args.supervised:
-            best_D, best_Z, mccs, l0s, losses = train_supervised_coding(
-                actual_seed, 1, args.lambda_p, args.lr, args.steps, 
-                args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=val_inputs, val_Z_iid=val_Z_iid, use_adaptivelr=not args.no_adaptivelr)
-            accuracy_dict = None
-        else:
-            best_D, best_Z, mccs, l0s, losses, accuracy_dict = train_unsupervised_coding(
-                actual_seed, 1, args.lambda_p, args.lr, args.steps, 
-                args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, args.m, Y_ood, label_ood, Z_ood, val_inputs=val_inputs, val_Z_iid=val_Z_iid, use_adaptivelr=not args.no_adaptivelr)
-
         # Organize results by seed and lambda_p
         lambda_str = f"{args.lambda_p:.0e}" if args.lambda_p < 1 else str(args.lambda_p)
         result_dir = f"results/seed_{actual_seed}/lambda_{lambda_str}"
         os.makedirs(result_dir, exist_ok=True)
 
-        df = pd.DataFrame()
-        df["mcc"] = mccs
-        df["l0"] = l0s
-        df["loss"] = losses
-        df.to_csv(f"{result_dir}/results.csv", index=False)
+        if args.supervised:
+            best_D, best_Z, mccs, l0s, losses = train_supervised_coding(
+                actual_seed, 1, args.lambda_p, args.lr, args.steps, 
+                args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=val_inputs, val_Z_iid=val_Z_iid, use_adaptivelr=not args.no_adaptivelr, save_dir=result_dir)
+            accuracy_dict = None
+        else:
+            best_D, best_Z, mccs, l0s, losses, accuracy_dict = train_unsupervised_coding(
+                actual_seed, 1, args.lambda_p, args.lr, args.steps, 
+                args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, args.m, Y_ood, label_ood, Z_ood, val_inputs=val_inputs, val_Z_iid=val_Z_iid, use_adaptivelr=not args.no_adaptivelr, save_dir=result_dir)
+
+        # Note: results.csv and accuracy.csv are now saved by the training functions
+        # Additional data files are still saved here for backward compatibility
         np.save(f"{result_dir}/z.npy", best_Z)
         np.save(f"{result_dir}/D.npy", best_D)
 
@@ -150,9 +153,9 @@ def main():
         torch.save(torch.tensor(best_D), os.path.join(ckpt_dir, "D.pt"))
         torch.save(torch.tensor(best_Z), os.path.join(ckpt_dir, "Z.pt"))
 
-        if accuracy_dict is not None:
-            acc_df = pd.DataFrame([accuracy_dict])
-            acc_df.to_csv(f"{result_dir}/accuracy.csv", index=False)
+        # Note: accuracy.csv is now saved by the training function
+        if not args.no_wandb:
+            run.finish()
 
 if __name__ == "__main__":
     main()
