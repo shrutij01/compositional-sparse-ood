@@ -7,11 +7,14 @@ from scipy.optimize import linear_sum_assignment
 
 def accuracy_iid(z, label_iid, C=np.inf, max_iter=1000):
     '''
-    Compute the accuracy on the IID dataset.
+    Compute the accuracy on the IID dataset, splitting into train/val and reporting both.
     '''
-    clf = LogisticRegression(C=C, max_iter=max_iter).fit(z, label_iid)
-    acc_iid = clf.score(z, label_iid)
-    return acc_iid, clf
+    from sklearn.model_selection import train_test_split
+    z_train, z_val, y_train, y_val = train_test_split(z, label_iid, test_size=0.5, random_state=42, stratify=label_iid)
+    clf = LogisticRegression(C=C, max_iter=max_iter).fit(z_train, y_train)
+    acc_train = clf.score(z_train, y_train)
+    acc_val = clf.score(z_val, y_val)
+    return (acc_train, acc_val), clf
 
 def accuracy_ood(clf, rec_z_ood, label_ood):
     """Compute the accuracy on the OOD dataset.

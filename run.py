@@ -41,6 +41,8 @@ def parse_args():
                        help='Learning rate (default: 1e-3)')
     parser.add_argument('--steps', type=int, default=100000, 
                        help='Number of training steps (default: 100000)')
+    parser.add_argument('--no_adaptivelr', action='store_true', 
+                       help='Disable AdaptiveLR scheduler (default: use AdaptiveLR)')
 
     # Model parameters
     parser.add_argument('--supervised', type=bool, default=False, 
@@ -63,7 +65,7 @@ def main():
     import os
     # List of lambda_p values to try
     # lambda_list = [1e-4, 1e-3, 1e-2, 1e-1, 1.0]
-    lambda_list = [1e-3]
+    # lambda_list = [1e-3]
 
     # Get the number of available GPUs
     num_gpus = torch.cuda.device_count()
@@ -80,63 +82,77 @@ def main():
 
     (train_Z_iid, train_Y_iid, train_label_iid), (val_Z_iid, val_Y_iid, val_label_iid), (Z_ood, Y_ood, label_ood), A = generate_datasets(n=args.n, k=args.k, n_samples=args.n_points, m=args.m)
 
-    for lambda_p in lambda_list:
-        print(f"\nRunning with lambda_p={lambda_p}")
-        args.lambda_p = lambda_p
+    # for lambda_p in lambda_list:
+        # print(f"\nRunning with lambda_p={lambda_p}")
+        # args.lambda_p = lambda_p
 
-        for rep in range(args.num_seed):
-            actual_seed = args.seed + rep
-            print(f"  Running seed {actual_seed}")
+    for rep in range(args.num_seed):
+        actual_seed = args.seed + rep
+        print(f"  Running seed {actual_seed}")
 
-            if not args.no_wandb:
-                run = wandb.init(
-                    project=args.project,
-                    config={
-                        "learning_rate": args.lr,
-                        "steps": args.steps,
-                        "n": args.n,
-                        "k": args.k,
-                        "m": args.m,
-                        "n_points": args.n_points,
-                        "lambda_p": args.lambda_p,
-                        "seed": actual_seed,
-                        "num_seed": 1,
-                    },
-                    reinit=True
-                )
-            else:
-                run = None
+        if not args.no_wandb:
+            run = wandb.init(
+                project=args.project,
+                config={
+                    "learning_rate": args.lr,
+                    "steps": args.steps,
+                    "n": args.n,
+                    "k": args.k,
+                    "m": args.m,
+                    "n_points": args.n_points,
+                    "lambda_p": args.lambda_p,
+                    "seed": actual_seed,
+                    "num_seed": 1,
+                },
+                reinit=True
+            )
+        else:
+            run = None
 
-            inputs = torch.tensor(train_Y_iid, dtype=torch.float32, device=device)
-            val_inputs = torch.tensor(val_Y_iid, dtype=torch.float32, device=device)
-            Y_ood = torch.tensor(Y_ood, dtype=torch.float32, device=device)
+        inputs = torch.tensor(train_Y_iid, dtype=torch.float32, device=device)
+        val_inputs = torch.tensor(val_Y_iid, dtype=torch.float32, device=device)
+        Y_ood = torch.tensor(Y_ood, dtype=torch.float32, device=device)
 
-            if args.supervised:
-                best_D, best_Z, mccs, l0s, losses = train_supervised_coding(
-                    actual_seed, 1, args.lambda_p, args.lr, args.steps, 
-                    args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=val_inputs, val_Z_iid=val_Z_iid)
-                accuracy_dict = None
-            else:
-                best_D, best_Z, mccs, l0s, losses, accuracy_dict = train_unsupervised_coding(
-                    actual_seed, 1, args.lambda_p, args.lr, args.steps, 
-                    args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, args.m, Y_ood, label_ood, Z_ood, val_inputs=val_inputs, val_Z_iid=val_Z_iid)
+        if args.supervised:
+            best_D, best_Z, mccs, l0s, losses = train_supervised_coding(
+                actual_seed, 1, args.lambda_p, args.lr, args.steps, 
+                args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=val_inputs, val_Z_iid=val_Z_iid, use_adaptivelr=not args.no_adaptivelr)
+            accuracy_dict = None
+        else:
+            best_D, best_Z, mccs, l0s, losses, accuracy_dict = train_unsupervised_coding(
+                actual_seed, 1, args.lambda_p, args.lr, args.steps, 
+                args.n, args.n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, args.m, Y_ood, label_ood, Z_ood, val_inputs=val_inputs, val_Z_iid=val_Z_iid, use_adaptivelr=not args.no_adaptivelr)
 
-            # Organize results by seed and lambda_p
-            lambda_str = f"{lambda_p:.0e}" if lambda_p < 1 else str(lambda_p)
-            result_dir = f"results/seed_{actual_seed}/lambda_{lambda_str}"
-            os.makedirs(result_dir, exist_ok=True)
+        # Organize results by seed and lambda_p
+        lambda_str = f"{lambda_p:.0e}" if lambda_p < 1 else str(lambda_p)
+        result_dir = f"results/seed_{actual_seed}/lambda_{lambda_str}"
+        os.makedirs(result_dir, exist_ok=True)
 
-            df = pd.DataFrame()
-            df["mcc"] = mccs
-            df["l0"] = l0s
-            df["loss"] = losses
-            df.to_csv(f"{result_dir}/results.csv", index=False)
-            np.save(f"{result_dir}/z.npy", best_Z)
-            np.save(f"{result_dir}/D.npy", best_D)
+        df = pd.DataFrame()
+        df["mcc"] = mccs
+        df["l0"] = l0s
+        df["loss"] = losses
+        df.to_csv(f"{result_dir}/results.csv", index=False)
+        np.save(f"{result_dir}/z.npy", best_Z)
+        np.save(f"{result_dir}/D.npy", best_D)
 
-            if accuracy_dict is not None:
-                acc_df = pd.DataFrame([accuracy_dict])
-                acc_df.to_csv(f"{result_dir}/accuracy.csv", index=False)
+        # Save results with parameter values in filename
+        fname = f"results/results_m{args.m}_n{args.n}_k{args.k}_lambda{args.lambda_p}_lr{args.lr}_npts{args.n_points}.npz"
+        np.savez(fname, D=best_D, Z=best_Z, mccs=mccs, l0s=l0s, losses=losses)
+
+        # Checkpoint model weights in a folder by parameter values
+        ckpt_dir = f"checkpoints/m{args.m}_n{args.n}_k{args.k}_lambda{args.lambda_p}_lr{args.lr}_npts{args.n_points}"
+        os.makedirs(ckpt_dir, exist_ok=True)
+        # Save D and Z as .npy for easy loading
+        np.save(os.path.join(ckpt_dir, "D.npy"), best_D)
+        np.save(os.path.join(ckpt_dir, "Z.npy"), best_Z)
+        # Optionally save as torch tensors if needed
+        torch.save(torch.tensor(best_D), os.path.join(ckpt_dir, "D.pt"))
+        torch.save(torch.tensor(best_Z), os.path.join(ckpt_dir, "Z.pt"))
+
+        if accuracy_dict is not None:
+            acc_df = pd.DataFrame([accuracy_dict])
+            acc_df.to_csv(f"{result_dir}/accuracy.csv", index=False)
 
 if __name__ == "__main__":
     main()

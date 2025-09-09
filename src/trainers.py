@@ -11,6 +11,7 @@ import torch
 
 from src.mcc import mean_corr_coef as mcc
 from src.evaluation import count_nonzero_close, downstream_accuracy, accuracy_iid, accuracy_best_z_iid, accuracy_best_all
+from src.opt import AdaptiveLR
 
 import wandb
 
@@ -18,7 +19,7 @@ wandb.login()
 
 device = torch.device('cuda')
 
-def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, true_A, val_inputs=None, val_Z_iid=None):
+def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, true_A, val_inputs=None, val_Z_iid=None, use_adaptivelr=True):
     best_loss = np.inf
     best_D, best_Z = None, None
 
@@ -33,6 +34,11 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_labe
 
     ind_iid = train_Z_iid.std(0) > 0
 
+    if use_adaptivelr:
+        scheduler = AdaptiveLR(optim, verbose=True)
+    else:
+        scheduler = None
+
     for i in tqdm(range(steps)):
         Z = torch.nn.functional.softplus(log_Z)
         rec = Z @ D
@@ -43,6 +49,8 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_labe
         optim.zero_grad()
         loss.backward()
         optim.step()
+        if scheduler is not None:
+            scheduler.step(loss.item())
 
         # Compute validation loss if validation data is provided
         val_loss = None
@@ -77,8 +85,9 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_labe
 
             ## training accuracy
             with torch.no_grad():
-                acc_iid_all, _ = accuracy_iid(Z.cpu().detach().numpy(), train_label_iid)
-                log_dict["acc_iid_all"] = acc_iid_all
+                (acc_iid_train, acc_iid_val), _ = accuracy_iid(Z.cpu().detach().numpy(), train_label_iid)
+                log_dict["acc_iid_train"] = acc_iid_train
+                log_dict["acc_iid_val"] = acc_iid_val
 
                 acc_iid_best, _, _ = accuracy_best_z_iid(train_label_iid, Z.cpu().detach().numpy())
                 log_dict["acc_iid_best"] = acc_iid_best
@@ -98,7 +107,7 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_labe
 
     return loss, mcc_iid, l0_norm_rec_z, best_Z, best_D
 
-def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=None, val_Z_iid=None):
+def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=None, val_Z_iid=None, use_adaptivelr=True):
     Ds = []
     Zs = []
     mccs = []
@@ -111,8 +120,7 @@ def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A,
         log_Z = torch.randn(n_points//2, n, dtype=torch.float32, device=device).requires_grad_()
         D = torch.tensor(A.T, dtype=torch.float32, device=device) # supervised
         optim = torch.optim.Adam([log_Z, D], lr=lr)
-
-        loss, mcc_iid, l0_norm_rec_z, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, A, val_inputs, val_Z_iid)
+        loss, mcc_iid, l0_norm_rec_z, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, A, val_inputs, val_Z_iid, use_adaptivelr=use_adaptivelr)
 
         Ds.append(D)
         Zs.append(Z)
@@ -123,7 +131,7 @@ def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A,
     
     return Ds, Zs, mccs, l0s, losses
 
-def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, m, Y_ood, label_ood, true_Z_ood, val_inputs=None, val_Z_iid=None):
+def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, m, Y_ood, label_ood, true_Z_ood, val_inputs=None, val_Z_iid=None, use_adaptivelr=True):
     Ds = []
     Zs = []
     mccs = []
@@ -136,8 +144,7 @@ def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, 
         log_Z = torch.randn(n_points//2, n, dtype=torch.float32, device=device).requires_grad_()
         D = torch.randn(n, m, dtype=torch.float32, device=device).requires_grad_() # unsupervised
         optim = torch.optim.Adam([log_Z, D], lr=lr)
-
-        loss, mcc_iid, l0_norm_rec_z, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, A, val_inputs, val_Z_iid)
+        loss, mcc_iid, l0_norm_rec_z, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, A, val_inputs, val_Z_iid, use_adaptivelr=use_adaptivelr)
 
         Ds.append(D)
         Zs.append(Z)
