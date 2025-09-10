@@ -1,16 +1,97 @@
 import numpy as np
+import concurrent.futures
+from typing import List
+import scipy
+from sklearn.metrics import r2_score
 import torch
+from numpy.linalg import svd
 from scipy.optimize import linear_sum_assignment
 from scipy.stats import spearmanr
-from sklearn.metrics.pairwise import cosine_similarity
-from scipy.spatial.distance import cosine as np_cos
-from torch.nn import CosineSimilarity
-from itertools import permutations
 
-torch.set_default_dtype(torch.double)
 
-if torch.cuda.is_available():
-    torch.set_default_tensor_type(torch.cuda.DoubleTensor)
+def r2(z_true, z):
+    return r2_score(z_true, z, multioutput="variance_weighted")
+
+
+"""Below is from the icebeem repo at https://github.com/ilkhem/icebeem/blob/master/metrics/mcc.py"""
+
+
+def rdc(x, y, k=20, s=0.5, nonlinearity="sin"):
+    """
+    Python implementation of the Randomized Dependence Coefficient (RDC) [1] algorithm
+    the RDC is a measure of correlation between two (scalar) random variables x and y
+    that is invariant to permutation, scaling, and most importantly nonlinear scaling
+
+    Parameters:
+        x: numpy array of shape (n,)
+        y: numpy array of shape (n,)
+        k: number of random projections in RDC
+        s: covariance of the Gaussian dist used for sampling the random weights
+        nonlinearity: nonlinear feature map used to transform the random projections
+
+    Return:
+        rdc_cc: flaot in [0,1] --- the RDC correlation coefficient
+
+    References:
+    [1] https://papers.nips.cc/paper/2013/file/aab3238922bcc25a6f606eb525ffdc56-Paper.pdf
+
+    """
+    cx = copula_projection(x, k, s, nonlinearity)
+    cy = copula_projection(y, k, s, nonlinearity)
+    rdc_cc = largest_cancorr(cx, cy)
+    return rdc_cc
+
+
+def copula_projection(x, k=20, s=0.5, nonlinearity="sin"):
+    n = x.shape[0]
+    k = min(k, n)
+    # compute the empirical cdf (copula) of x evaluated at x
+    p = rank_array(x) / n  # (n, )
+    # augment the copula with 1
+    pt = np.vstack([p, np.ones(n)]).T  # (n, 2)
+    # sample k random weights
+    wt = np.random.normal(0, s, size=(pt.shape[1], k))
+    # wt = np.random.randn(2, k)
+    # phix = np.sin(s/pt.shape[1]*pt.dot(wt))  # (n, k)
+    if nonlinearity == "sin":
+        phix = np.sin(pt.dot(wt))  # (n, k)
+    elif nonlinearity == "cos":
+        phix = np.cos(pt.dot(wt))  # (n, k)
+    else:
+        raise ValueError(f"{nonlinearity} not supported")
+    return np.hstack([phix, np.ones((n, 1))])
+
+
+def make_diag(el, nrows, ncols):
+    diag = np.zeros((nrows, ncols))
+    for i in range(min(nrows, ncols)):
+        diag[i, i] = el
+    return diag
+
+
+def largest_cancorr(x, y):
+    """
+    Return the largest correlation coefficient after solving CCA between two matrices `x` and `y`.
+    inspired from R's `cancor` function
+    """
+    n = x.shape[0]
+    x = x - x.mean(axis=0)
+    y = y - y.mean(axis=0)
+    qx, _ = scipy.linalg.qr(x, mode="full")
+    qy, _ = scipy.linalg.qr(y, mode="full")
+    dx = np.linalg.matrix_rank(x)
+    dy = np.linalg.matrix_rank(y)
+    qxy = qx.T.dot(qy.dot(make_diag(1, n, dy)))[:dx]
+    _, s, _ = scipy.linalg.svd(qxy, lapack_driver="gesvd")
+    return s[0]
+
+
+def rank_array(x):
+    """rank the elements of a vector"""
+    tmp = x.argsort()
+    ranks = np.empty_like(tmp)
+    ranks[tmp] = np.arange(len(x))
+    return ranks + 1
 
 
 def auction_linear_assignment(x, eps=None, reduce="sum"):
@@ -85,7 +166,7 @@ def auction_linear_assignment(x, eps=None, reduce="sum"):
         price[:, J] += gamma_iJ
         # unassign any row that was assigned to object j at the beginning of the iteration
         # for each j \in J
-        mask = (assignment.view(-1, 1) == J.view(1, -1)).sum(dim=1).byte()
+        mask = (assignment.view(-1, 1) == J.view(1, -1)).sum(dim=1).bool()
         assignment.masked_fill_(mask, -1)
         # assign j to i_j for each j \in J
         assignment[iJ] = J
@@ -264,8 +345,12 @@ def corrcoef_pt(x, y=None, rowvar=False):
         # scalar covariance
         return c / c
     stddev = torch.sqrt(d)
+    # import ipdb
+
+    # ipdb.set_trace()
     c /= stddev[:, None]
     c /= stddev[None, :]
+
     return c
 
 
@@ -287,114 +372,79 @@ def spearmanr_pt(x, y=None, rowvar=False):
             while the rows contain observations.
             The default is False.
     :return: torch.Tensor
-           Spearman correlation matrix or correlation coefficient.
+        Spearman correlation matrix or correlation coefficient.
     """
-    #     xr = rankdata_pt(x, dim=int(rowvar)).float()
-    d = x.ndim
-    xr = rankdata_pt(x, dim=-d).float()
+    xr = rankdata_pt(x, dim=int(rowvar)).float()
     yr = None
     if y is not None:
-        #         yr = rankdata_pt(y, dim=int(rowvar)).float()
-        yr = rankdata_pt(y, dim=-d).float()
+        yr = rankdata_pt(y, dim=int(rowvar)).float()
     rs = corrcoef_pt(xr, yr, rowvar)
     return rs
-
-
-def get_mcc_pt(x, y, method="pearson"):
-    """
-    Get absolute MCC/MCS COLUMN-wise.
-    """
-    d = x.size(1)
-    if method == "pearson":
-        cc = corrcoef_pt(x, y)[:d, d:]
-    #     elif method == 'spearman':
-    #         cc = spearmanr_pt(x, y)[:d, d:]
-    # Pytorch implementation does not work!!! (Check again, it might work now after some modifications)
-    elif method == "cos":
-        cos = CosineSimilarity(dim=0)
-        # proceed only if the matrices have the same dimensions
-        if x.shape == y.shape:
-            # take the correlation between each column of each matrix
-            cc = torch.zeros(x.shape)
-            for j in range(x.shape[0]):
-                for k in range(y.shape[1]):
-                    cc[j, k] = cos(x[:, j], y[:, k])  # used for for columns
-    else:
-        raise ValueError("not a valid method: {}".format(method))
-        return
-    cc = torch.abs(cc)
-    return cc
 
 
 def mean_corr_coef_pt(x, y, method="pearson"):
     """
     A differentiable pytorch implementation of the mean correlation coefficient metric.
-    Get correlations and then use linear assignment.
 
     :param x: torch.Tensor
     :param y: torch.Tensor
     :param method: str, optional
-            The options are 'pearson', 'spearman', and 'cos'.
+            The method used to compute the correlation coefficients.
+                The options are 'pearson' and 'spearman'
                 'pearson':
                     use Pearson's correlation coefficient
                 'spearman':
                     use Spearman's nonparametric rank correlation coefficient
-                'cos':
-                    use pairwise cosine similarity to evaluate the mixing matrix.
     :return: float
     """
-    cc = get_mcc_pt(x, y, method)
-    score, _, _ = auction_linear_assignment(cc, reduce="mean")
-    return score
-
-
-def get_mcc_np(x, y, method="pearson"):
-    """
-    Get absolute MCC/MCS COLUMN-wise.
-    method (str): Cosine similarity ('cos') or correlation ('pearson').
-    """
-    d = x.shape[1]
+    d = x.size(1)
     if method == "pearson":
-        cc = np.corrcoef(x, y, rowvar=False)[:d, d:]
-    #     elif method == 'spearman':
-    #         cc = spearmanr(x, y)[0][:d, d:]
-    elif method == "cos":
-        # Sklearn computes the pairwise cosine similarity row-wise, so we need to transpose it to do column-wise
-        cc = cosine_similarity(x.T, y.T)
+        cc = corrcoef_pt(x, y)[:d, d:]
+    elif method == "spearman":
+        cc = spearmanr_pt(x, y)[:d, d:]
     else:
         raise ValueError("not a valid method: {}".format(method))
-    cc = np.abs(cc)
-    return cc
+    cc = torch.abs(cc)
+    score, _, _ = auction_linear_assignment(cc, reduce="mean")
+    return score
 
 
 def mean_corr_coef_np(x, y, method="pearson"):
     """
     A numpy implementation of the mean correlation coefficient metric.
-    Get correlations and then use linear assignment.
 
     :param x: numpy.ndarray
     :param y: numpy.ndarray
     :param method: str, optional
             The method used to compute the correlation coefficients.
-                The options are 'pearson', 'spearman', and 'cos'.
+                The options are 'pearson' and 'spearman'
                 'pearson':
                     use Pearson's correlation coefficient
                 'spearman':
                     use Spearman's nonparametric rank correlation coefficient
-                'cos':
-                    use pairwise cosine similarity to evaluate the mixing matrix.
     :return: float
     """
-    cc = get_mcc_np(x, y, method)
+    d = x.shape[1]
+    if method == "pearson":
+        cc = np.corrcoef(x, y, rowvar=False)[:d, d:]
+    elif method == "spearman":
+        cc = spearmanr(x, y)[0][:d, d:]
+    elif method == "rdc":
+        cc = np.zeros((d, d))
+        for i in range(x.shape[1]):
+            for j in range(y.shape[1]):
+                cc[i, j] = rdc(x[:, i], y[:, j])
+    else:
+        raise ValueError("not a valid method: {}".format(method))
+    cc = np.abs(cc)
+    # import ipdb
+
+    # ipdb.set_trace()
     score = cc[linear_sum_assignment(-1 * cc)].mean()
     return score
 
 
 def mean_corr_coef(x, y, method="pearson"):
-    """
-    MCC or MCS with linear assignment.
-    method (str): Cosine similarity ('cos') or correlation ('pearson' or 'spearman').
-    """
     if type(x) != type(y):
         raise ValueError(
             "inputs are of different types: ({}, {})".format(type(x), type(y))
@@ -407,93 +457,62 @@ def mean_corr_coef(x, y, method="pearson"):
         raise ValueError("not a supported input type: {}".format(type(x)))
 
 
-def get_mcs_pt(x, y, method="cos"):
+def mean_corr_coef_out_of_sample(x, y, x_test, y_test, method="pearson"):
     """
-    Get absolute MCC/MCS COLUMN-wise.
-    method (str): Cosine similarity ('cos') or correlation ('pearson' or 'spearman').
+    we compare mean correlation coefficients out of sample
+    -> we use (x,y) to learn permutation and then evaluate the correlations
+    determined by this permutation on (x_test, y_test)
     """
-    d = x.size(1)
-    all_perm = list(permutations(np.arange(d)))
 
-    if method == "cos":
-        cos = CosineSimilarity(dim=0)
-        # proceed only if the matrices have the same dimensions
-        if x.shape == y.shape:
-            sbest = 0
-            for p in all_perm:
-                s = 0
-                for i in range(d):
-                    s = s + torch.abs(cos(x[:, i], y[:, p[i]]))
-                s = s / d
-                if s > sbest:
-                    sbest = s
-            return sbest
-
-    elif method == "pearson":
-        raise ValueError("not implemented: {}".format(method))
-        return
-    #         cc = corrcoef_pt(x, y)[:d, d:]
+    d = x.shape[1]
+    if method == "pearson":
+        cc = np.corrcoef(x, y, rowvar=False)[:d, d:]
+        cc_test = np.corrcoef(x_test, y_test, rowvar=False)[:d, d:]
     elif method == "spearman":
-        raise ValueError("not implemented: {}".format(method))
-        return
-    #         cc = spearmanr_pt(x, y)[:d, d:]
+        cc = spearmanr(x, y)[0][:d, d:]
+        cc_test = spearmanr(x_test, y_test)[0][:d, d:]
+    elif method == "rdc":
+        cc = np.zeros((d, d))
+        for i in range(x.shape[1]):
+            for j in range(y.shape[1]):
+                cc[i, j] = rdc(x[:, i], y[:, j])
+        cc_test = np.zeros((d, d))
+        for i in range(x_test.shape[1]):
+            for j in range(y_test.shape[1]):
+                cc_test[i, j] = rdc(x_test[:, i], y_test[:, j])
     else:
         raise ValueError("not a valid method: {}".format(method))
-        return
+    cc = np.abs(cc)
+
+    score = np.abs(cc_test)[linear_sum_assignment(-1 * cc)].mean()
+    return score
 
 
-def get_mcs_np(x, y, method="cos"):
-    """
-    Get absolute MCC/MCS COLUMN-wise.
-    method (str): Cosine similarity ('cos') or correlation ('pearson').
-    """
-    d = x.shape[
-        1
-    ]  # d is the number of columns, which is the number of sources
-    all_perm = list(permutations(np.arange(d)))
-    if method == "cos":
-        # proceed only if the matrices have the same dimensions
-        if x.shape == y.shape:
-            sbest = 0
-            for p in all_perm:
-                s = 0
-                for i in range(d):
-                    s = s + np.abs(1 - np_cos(x[:, i], y[:, p[i]]))
-                s = s / d
-                if s > sbest:
-                    sbest = s
-            return sbest
-
-    elif method == "pearson":
-        raise ValueError("not implemented: {}".format(method))
-        return
-    elif method == "spearman":
-        raise ValueError("not implemented: {}".format(method))
-        return
-
-    else:
-        raise ValueError("not a valid method: {}".format(method))
-        return
-
-    return cc
-
-
-def max_perm_mcs_col(A, true_A, method="cos"):
-    """
-    MCC or MCS by taking the maximum of all column permutations (without linear assignment).
-
-    A (np.ndarray or torch.Tendor, 2-dimensional): estimated mixing matrix.
-    true_A (np.ndarray or torch.Tendor, 2-dimensional): true mixing matrix.
-    method (str): Cosine similarity ('cos') or correlation ('pearson' or 'spearman').
-    """
-    if type(A) != type(true_A):
-        raise ValueError(
-            "inputs are of different types: ({}, {})".format(type(x), type(y))
-        )
-    if isinstance(A, np.ndarray):
-        mean_mcc = get_mcs_np(A, true_A, method)
-    elif isinstance(A, torch.Tensor):
-        mean_mcc = get_mcs_pt(A, true_A, method)
-    else:
-        raise ValueError("not a supported input type: {}".format(type(x)))
-    return mean_mcc
+if __name__ == "__main__":
+    print("Test the MCC for difference correlation coefficients\n")
+    x_test = np.random.randn(500, 3)
+    xx = np.random.rand(*x_test.shape)
+    print("Correlation with random")
+    print(f"Pearson corr: {mean_corr_coef_np(x_test, xx, method='pearson')}")
+    print(f"Spearman corr: {mean_corr_coef_np(x_test, xx, method='spearman')}")
+    print(f"RDC corr: {mean_corr_coef_np(x_test, xx, method='rdc')}")
+    print("\n")
+    w = np.array([x_test[:, 2], x_test[:, 0], x_test[:, 1]]).T
+    print("Correlation after permutation")
+    print(f"Pearson corr: {mean_corr_coef_np(x_test, w, method='pearson')}")
+    print(f"Spearman corr: {mean_corr_coef_np(x_test, w, method='spearman')}")
+    print(f"RDC corr: {mean_corr_coef_np(x_test, w, method='rdc')}")
+    print("\n")
+    z = np.array([x_test[:, 1], np.exp(x_test[:, 0]), x_test[:, 2] ** 3]).T
+    print("Correlation after monotonic scaling")
+    print(f"Pearson corr: {mean_corr_coef_np(x_test, z, method='pearson')}")
+    print(f"Spearman corr: {mean_corr_coef_np(x_test, z, method='spearman')}")
+    print(f"RDC corr: {mean_corr_coef_np(x_test, z, method='rdc')}")
+    print("\n")
+    t = np.array(
+        [np.exp(x_test[:, 2]), x_test[:, 1] ** 2, np.abs(x_test[:, 0])]
+    ).T
+    print("Correlation after non-monotonic scaling")
+    print(f"Pearson corr: {mean_corr_coef_np(x_test, t, method='pearson')}")
+    print(f"Spearman corr: {mean_corr_coef_np(x_test, t, method='spearman')}")
+    print(f"RDC corr: {mean_corr_coef_np(x_test, t, method='rdc')}")
