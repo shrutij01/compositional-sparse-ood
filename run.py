@@ -21,7 +21,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train sparse coding model for OOD detection')
     
     # Data parameters
-    parser.add_argument('--n_points', type=int, default=2000, 
+    parser.add_argument('--n_points', type=int, default=1000, 
                        help='Number of data points (default: 2000)')
     parser.add_argument('--n', type=int, default=100, 
                        help='Number of sources (default: 100)')
