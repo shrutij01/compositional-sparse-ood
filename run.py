@@ -35,11 +35,11 @@ def parse_args():
                        help='Random seed (default: 7012025)')
     parser.add_argument('--num_seed', type=int, default=1, 
                        help='Number of random seeds to try (default: 1)')
-    parser.add_argument('--lambda_p', type=float, default=0.1, 
+    parser.add_argument('--lambda_p', type=float, default=0.01668101, 
                        help='L1 regularization weight (default: 0.1)')
-    parser.add_argument('--lr', type=float, default=1e-3, 
+    parser.add_argument('--lr', type=float, default=1e-2, 
                        help='Learning rate (default: 1e-3)')
-    parser.add_argument('--steps', type=int, default=100000, 
+    parser.add_argument('--steps', type=int, default=500000, 
                        help='Number of training steps (default: 100000)')
     parser.add_argument('--no_adaptivelr', action='store_true', 
                        help='Disable AdaptiveLR scheduler (default: use AdaptiveLR)')
@@ -84,7 +84,8 @@ def main():
         device = torch.device(args.device if torch.cuda.is_available() or args.device == 'cpu' else 'cpu')
 
     if args.m is None:
-        args.m = int(np.ceil(args.k * np.log(args.n/args.k) * 1))
+        # args.m = int(np.ceil(args.k * np.log(args.n/args.k) * 1))
+        args.m = int(np.ceil(args.k * np.log(args.n/args.k) * 2))
 
     (train_Z_iid, train_Y_iid, train_label_iid), (val_Z_iid, val_Y_iid, val_label_iid), (Z_ood, Y_ood, label_ood), A = generate_datasets(n=args.n, k=args.k, n_samples=args.n_points, m=args.m)
 
