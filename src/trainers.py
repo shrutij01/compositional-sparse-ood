@@ -22,9 +22,9 @@ wandb.login()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
-def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, true_A, val_inputs=None, val_Z_iid=None, use_adaptivelr=True, save_dir=None):
+def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, true_A, Y_ood=None, true_Z_ood=None, log_Z_ood=None, val_inputs=None, val_Z_iid=None, use_adaptivelr=True, save_dir=None):
     best_loss = np.inf
-    best_D, best_Z = None, None
+    best_D, best_Z, best_Z_ood = None, None, None
     
     # Initialize list to store all logged metrics
     logged_metrics = []
@@ -48,9 +48,25 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_labe
     for i in tqdm(range(steps)):
         Z = torch.nn.functional.softplus(log_Z)
         rec = Z @ D
-        mse = torch.mean((inputs - rec)**2)
-        l1 = torch.mean(torch.abs(Z) * torch.linalg.norm(D, dim=1))
-        loss = mse + lambda_p * l1
+        
+        # Compute IID loss terms
+        mse_iid = torch.mean((inputs - rec)**2)
+        l1_iid = torch.mean(torch.abs(Z) * torch.linalg.norm(D, dim=1))
+        
+        # Compute OOD loss terms if OOD data is provided
+        if Y_ood is not None and log_Z_ood is not None:
+            Z_ood = torch.nn.functional.softplus(log_Z_ood)
+            rec_ood = Z_ood @ D
+            mse_ood = torch.mean((Y_ood - rec_ood)**2)
+            l1_ood = torch.mean(torch.abs(Z_ood) * torch.linalg.norm(D, dim=1))
+            
+            # Joint loss with both IID and OOD terms
+            loss = mse_iid + mse_ood + lambda_p * (l1_iid + l1_ood)
+        else:
+            # Original single-domain loss
+            mse_ood = torch.tensor(0.0)
+            l1_ood = torch.tensor(0.0)
+            loss = mse_iid + lambda_p * l1_iid
         
         optim.zero_grad()
         loss.backward()
@@ -77,8 +93,10 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_labe
                 # print(f"L0 'norm' of reconstructed Z: {l0_norm_rec_z}")
             log_dict = {
                 "loss": loss.item(),
-                "mse": mse.item(),
-                "l1": l1.item(),
+                "mse_iid": mse_iid.item(),
+                "mse_ood": mse_ood.item(),
+                "l1_iid": l1_iid.item(),
+                "l1_ood": l1_ood.item(),
                 "step": i,
                 "mcc": mcc_iid.item(),
                 "mcs_D": mcs_D.item(),
@@ -105,15 +123,19 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_labe
             logged_metrics.append(log_dict.copy())
             # print(log_dict)
 
-        # early stopping
-        if i > 10000:
-            if loss.item() > best_loss * 1.1:
-                break
+        # # early stopping
+        # if i > 10000:
+        #     if loss.item() > best_loss * 1.1:
+        #         break
 
         if loss.item() < best_loss:
             best_loss = loss.item()
             best_D = D.detach().cpu().numpy()
             best_Z = Z.detach().cpu().numpy()
+            if Y_ood is not None and log_Z_ood is not None:
+                best_Z_ood = Z_ood.detach().cpu().numpy()
+            else:
+                best_Z_ood = None
 
     # Save all logged metrics to file
     if save_dir is not None and logged_metrics:
@@ -121,7 +143,7 @@ def train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_labe
         metrics_df = pd.DataFrame(logged_metrics)
         metrics_df.to_csv(os.path.join(save_dir, 'training_metrics.csv'), index=False)
 
-    return loss, mcc_iid, l0_norm_rec_z, best_Z, best_D
+    return loss, mcc_iid, l0_norm_rec_z, best_Z, best_D, best_Z_ood
 
 def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A, inputs, optim, train_Z_iid, train_label_iid, run, val_inputs=None, val_Z_iid=None, use_adaptivelr=True, save_dir=None):
     Ds = []
@@ -142,7 +164,7 @@ def train_supervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, A,
         if save_dir is not None:
             rep_save_dir = os.path.join(save_dir, f'rep_{rep}')
         
-        loss, mcc_iid, l0_norm_rec_z, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, A, val_inputs, val_Z_iid, use_adaptivelr=use_adaptivelr, save_dir=rep_save_dir)
+        loss, mcc_iid, l0_norm_rec_z, Z, D, Z_ood = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, A, Y_ood=None, true_Z_ood=None, log_Z_ood=None, val_inputs=val_inputs, val_Z_iid=val_Z_iid, use_adaptivelr=use_adaptivelr, save_dir=rep_save_dir)
 
         Ds.append(D)
         Zs.append(Z)
@@ -179,15 +201,27 @@ def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, 
 
         # Initialize with smaller values to prevent gradient explosion
         log_Z = torch.randn(n_points//2, n, dtype=torch.float32, device=device).requires_grad_()
+        log_Z.data -= 10 # good for softplus, small init
+        
+        # Initialize log_Z_ood for OOD data optimization
+        log_Z_ood = torch.randn(Y_ood.shape[0], n, dtype=torch.float32, device=device).requires_grad_()
+        log_Z_ood.data -= 10 # good for softplus, small init
+        
         D = torch.randn(n, m, dtype=torch.float32, device=device).requires_grad_() # unsupervised
-        optim = torch.optim.Adam([log_Z, D], lr=lr)
+        D.data *= 1e-3
+        
+        # Include log_Z_ood in the optimization
+        optim = torch.optim.Adam([log_Z, log_Z_ood, D], lr=lr)
         
         # Create subdirectory for this repetition if save_dir is provided
         rep_save_dir = None
         if save_dir is not None:
             rep_save_dir = os.path.join(save_dir, f'rep_{rep}')
         
-        loss, mcc_iid, l0_norm_rec_z, Z, D = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, A, val_inputs, val_Z_iid, use_adaptivelr=use_adaptivelr, save_dir=rep_save_dir)
+        # Convert Y_ood to tensor if it's not already
+        Y_ood_tensor = torch.tensor(Y_ood, dtype=torch.float32, device=device) if not isinstance(Y_ood, torch.Tensor) else Y_ood
+        
+        loss, mcc_iid, l0_norm_rec_z, Z, D, Z_ood = train_seed(log_Z, D, inputs, optim, steps, lambda_p, train_Z_iid, train_label_iid, run, A, Y_ood=Y_ood_tensor, true_Z_ood=true_Z_ood, log_Z_ood=log_Z_ood, val_inputs=val_inputs, val_Z_iid=val_Z_iid, use_adaptivelr=use_adaptivelr, save_dir=rep_save_dir)
 
         Ds.append(D)
         Zs.append(Z)
@@ -198,10 +232,10 @@ def train_unsupervised_coding(seed, num_seed, lambda_p, lr, steps, n, n_points, 
     # l0_norm_rec_z = np.count_nonzero(Z, axis=1).mean()
     # print(f"L0 'norm' of reconstructed Z: {l0_norm_rec_z}")
 
-    _, z_ood, _, _, _ = train_supervised_coding(seed, 1, lambda_p, lr, steps, n, n_points, D.T, Y_ood, optim, true_Z_ood, label_ood, run)
+    # _, z_ood, _, _, _ = train_supervised_coding(seed, 1, lambda_p, lr, steps, n, n_points, D.T, Y_ood, optim, true_Z_ood, label_ood, run)
 
-    acc_iid_all, acc_ood_all = downstream_accuracy(Z, z_ood[0], train_label_iid, label_ood)
-    acc_iid_best, acc_ood_best = accuracy_best_all(train_label_iid, label_ood, Z, z_ood[0])
+    acc_iid_all, acc_ood_all = downstream_accuracy(Z, Z_ood, train_label_iid, label_ood)
+    acc_iid_best, acc_ood_best = accuracy_best_all(train_label_iid, label_ood, Z, Z_ood)
 
     # print(f"Downstream accuracy (iid, ood) using all data: {acc_iid_all}, {acc_ood_all}")
     # print(f"Downstream accuracy (iid, ood) using best z: {acc_iid_best}, {acc_ood_best}")
