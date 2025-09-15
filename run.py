@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('--k', type=int, default=10, 
                        help='Sparsity level (default: 10)')
     parser.add_argument('--m', type=int, default=None, 
-                       help='Compressed sensing bound (default: computed as ceil(k * log(n/k)))')
+                       help='Compressed sensing bound (default: computed as ceil(k * log(n/k)))*2')
     
     # Training parameters
     parser.add_argument('--seed', type=int, default=7012025, 

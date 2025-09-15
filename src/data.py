@@ -279,7 +279,7 @@ def generate_datasets(seed=None, n=3, k=2, n_samples=100, m=None):
         np.random.seed(seed)
 
     if m is None:
-        m = int(np.ceil(k * np.log(n / k) * 1))
+        m = int(np.ceil(k * np.log(n / k) * 2))
         print("m = ", m)
 
     (Z_iid, Y_iid, label_iid), (Z_ood, Y_ood, label_ood), A = generate_data(
