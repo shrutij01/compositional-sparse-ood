@@ -434,7 +434,7 @@ def main():
     # Include seed, m (M), k (K), and npoints (D) in filename for disambiguation
     filename = (
         f'results_seed={seed}_supervised={supervised}_lambda={lam:.4e}'
-        f'_m={M}_k={K}_npoints={D}.pickle'
+        f'_m={M}_k={K}_npoints={D}_n={N}.pickle'
     )
     with open(filename, 'wb') as handle:
         pickle.dump(log, handle, protocol=pickle.HIGHEST_PROTOCOL)
