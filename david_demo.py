@@ -230,7 +230,7 @@ def main():
                         help='Number of sources.')
     parser.add_argument('--m', type=int, default=100,
                         help='Number of observed variables.')
-    parser.add_argument('--k', type=int, default=100,
+    parser.add_argument('--k', type=int, default=10,
                         help='Sparsity level.')
     parser.add_argument('--n_points', type=int, default=1000,
                         help='Number of points.')
@@ -255,11 +255,12 @@ def main():
     seed = args.seed
     C = np.inf # no regularisation for lin. regression
     power = 1 # uniform density
-    D = 1000 # number of data samples
-    N = 100 # number of sources
-    K = 10 # sparsity
+    D = args.n_points # number of data samples
+    N = args.n # number of sources
+    K = args.k # sparsity
     num_ood = N // 2 # how many new OOD sources
-    M = int(np.ceil(K * np.log(N / K) * 2)) # Compressed Sensing bound times 2
+    # M = int(np.ceil(K * np.log(N / K) * 2)) # Compressed Sensing bound times 2
+    M = args.m
     lr = 1e-2
     
     # lazy example (might not be perfect), just draw random A
