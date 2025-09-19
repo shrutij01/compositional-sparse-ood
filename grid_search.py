@@ -2,9 +2,43 @@ import os
 import sys
 import argparse
 
-lambdas = [1e-4, 1e-3, 1e-2, 1e-1, 1.0]
-# lambdas = [1e-2]
+# lambdas = [1e-4, 1e-3, 1e-2, 1e-1, 1.0]
+# # lambdas = [1e-2]
 
-for lambda_p in lambdas:
-    # os.system("sbatch cshl.sh " + str(lambda_p))
-    os.system("sbatch mila_slurm.sh " + str(lambda_p))
+# for lambda_p in lambdas:
+#     # os.system("sbatch cshl.sh " + str(lambda_p))
+#     os.system("sbatch mila_slurm.sh " + str(lambda_p))
+
+
+seeds = [7012025, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+# lambdas = [0.001, 0.01, 0.1, 1.0]
+# ns = [24, 47, 100, 200, 300, 500]
+# ms = [10, 24, 47, 75, 100]
+ks = [1, 5, 10, 20, 40, 60, 80, 100]
+nsamples = [500, 1000, 5000, 10000, 50000, 100000]
+
+
+# for seed in seeds:
+#     os.system("sbatch mila_slurm.sh " + str(seed))
+
+
+# for seed in seeds:
+#     for lam in lambdas:
+#         os.system("sbatch mila_slurm.sh " + str(seed) + " " + str(lam))
+
+# for seed in seeds:
+#     for n in ns:
+#         os.system("sbatch mila_slurm.sh " + str(seed) + " " + str(n))
+
+
+# for seed in seeds:
+#     for m in ms:
+#         os.system("sbatch mila_slurm.sh " + str(seed) + " " + str(m))
+
+# for seed in seeds:
+#     for k in ks:
+#         os.system("sbatch mila_slurm.sh " + str(seed) + " " + str(k))
+
+for seed in seeds:
+    for samples in nsamples:
+        os.system("sbatch mila_slurm.sh " + str(seed) + " " + str(samples))

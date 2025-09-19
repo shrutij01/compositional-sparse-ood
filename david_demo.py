@@ -231,6 +231,17 @@ def main():
     # 1) Learn matrix A (=dictionary) on Y_iid
     # 2) infer Z_iid_ and Z_ood_ [can be done at same time as step 1) or at the end]
     # 3) On Z_iid_, train linear classifier - how good (iid and ood)?    
+    parser.add_argument(
+        '--seed', type=int, default=7012025,
+        help='Random seed for numpy and torch.')
+    parser.add_argument('--n', type=int, default=100,
+                        help='Number of sources.')
+    parser.add_argument('--m', type=int, default=100,
+                        help='Number of observed variables.')
+    parser.add_argument('--k', type=int, default=100,
+                        help='Sparsity level.')
+    parser.add_argument('--n_points', type=int, default=1000,
+                        help='Number of points.')
     args = parser.parse_args()
     
     # Use the parsed lambda
@@ -241,11 +252,13 @@ def main():
     print(f'device {device}, lambda={lam:.6e}, supervised={supervised}')
     
     # Parameters
-    seed = 7012025
+    seed = args.seed
     C = np.inf # no regularisation for lin. regression
     power = 1 # uniform density
-    D = 1000 # number of data samples
-    N = 100 # number of sources
+    # D = 1000 # number of data samples
+    D = args.n_points
+    # N = 100 # number of sources
+    N = args.n
     K = 10 # sparsity
     num_ood = N // 2 # how many new OOD sources
     M = int(np.ceil(K * np.log(N / K) * 2)) # Compressed Sensing bound times 2
@@ -325,7 +338,9 @@ def main():
         'mse_iid': [], 'mse_ood': [], 
         'l1_iid': [], 'l1_ood': [], 
         'mcc_iid': [], 'mcc_ood': [], 
-        'auc_iid': [], 'auc_ood': []
+        'auc_iid': [], 'auc_ood': [],
+        'seed': seed,
+        'supervised': supervised
     }
     run_loss = []
     for i in tqdm(range(max_steps + 1)):
@@ -418,12 +433,11 @@ def main():
     log['A_'] = A_.detach().cpu().numpy()
     
     # Save the single result dictionary to a unique file
-    filename = f'results_supervised={supervised}_lambda={lam:.4e}.pickle'
+    filename = f'results_seed={seed}_supervised={supervised}_lambda={lam:.4e}_n={N}.pickle'
     with open(filename, 'wb') as handle:
         pickle.dump(log, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
     print(f"Results saved to {filename}")
-
 
 if __name__ == '__main__':
     main()
