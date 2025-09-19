@@ -223,14 +223,6 @@ def main():
     parser.add_argument(
         '--supervised', action='store_true', 
         help='Flag to run in supervised mode.')
-    ### Setting ###
-    # Sparse code (supervised) setting:
-    # 1) infer Z_iid_ and Z_ood_
-    # 2) On Z_iid_, train linear classifier - how good (iid and ood)?
-    # Sparse code (unsupervised) setting:
-    # 1) Learn matrix A (=dictionary) on Y_iid
-    # 2) infer Z_iid_ and Z_ood_ [can be done at same time as step 1) or at the end]
-    # 3) On Z_iid_, train linear classifier - how good (iid and ood)?    
     parser.add_argument(
         '--seed', type=int, default=7012025,
         help='Random seed for numpy and torch.')
@@ -242,6 +234,14 @@ def main():
                         help='Sparsity level.')
     parser.add_argument('--n_points', type=int, default=1000,
                         help='Number of points.')
+    ### Setting ###
+    # Sparse code (supervised) setting:
+    # 1) infer Z_iid_ and Z_ood_
+    # 2) On Z_iid_, train linear classifier - how good (iid and ood)?
+    # Sparse code (unsupervised) setting:
+    # 1) Learn matrix A (=dictionary) on Y_iid
+    # 2) infer Z_iid_ and Z_ood_ [can be done at same time as step 1) or at the end]
+    # 3) On Z_iid_, train linear classifier - how good (iid and ood)?    
     args = parser.parse_args()
     
     # Use the parsed lambda
@@ -255,10 +255,8 @@ def main():
     seed = args.seed
     C = np.inf # no regularisation for lin. regression
     power = 1 # uniform density
-    # D = 1000 # number of data samples
-    D = args.n_points
-    # N = 100 # number of sources
-    N = args.n
+    D = 1000 # number of data samples
+    N = 100 # number of sources
     K = 10 # sparsity
     num_ood = N // 2 # how many new OOD sources
     M = int(np.ceil(K * np.log(N / K) * 2)) # Compressed Sensing bound times 2
@@ -339,8 +337,8 @@ def main():
         'l1_iid': [], 'l1_ood': [], 
         'mcc_iid': [], 'mcc_ood': [], 
         'auc_iid': [], 'auc_ood': [],
-        'seed': seed,
-        'supervised': supervised
+        # metadata for convenience
+        'seed': seed, 'supervised': supervised, 'M': M, 'K': K, 'D': D, 'N': N
     }
     run_loss = []
     for i in tqdm(range(max_steps + 1)):
@@ -433,11 +431,16 @@ def main():
     log['A_'] = A_.detach().cpu().numpy()
     
     # Save the single result dictionary to a unique file
-    filename = f'results_seed={seed}_supervised={supervised}_lambda={lam:.4e}_n={N}.pickle'
+    # Include seed, m (M), k (K), and npoints (D) in filename for disambiguation
+    filename = (
+        f'results_seed={seed}_supervised={supervised}_lambda={lam:.4e}'
+        f'_m={M}_k={K}_npoints={D}.pickle'
+    )
     with open(filename, 'wb') as handle:
         pickle.dump(log, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
     print(f"Results saved to {filename}")
+
 
 if __name__ == '__main__':
     main()
