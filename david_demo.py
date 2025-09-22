@@ -228,7 +228,7 @@ def main():
         help='Random seed for numpy and torch.')
     parser.add_argument('--n', type=int, default=100,
                         help='Number of sources.')
-    parser.add_argument('--m', type=int, default=100,
+    parser.add_argument('--m', type=int, default=None,
                         help='Number of observed variables.')
     parser.add_argument('--k', type=int, default=10,
                         help='Sparsity level.')
@@ -261,6 +261,8 @@ def main():
     num_ood = N // 2 # how many new OOD sources
     # M = int(np.ceil(K * np.log(N / K) * 2)) # Compressed Sensing bound times 2
     M = args.m
+    if M is None:
+        M = int(np.ceil(K * np.log(N / K) * 2)) # Compressed Sensing bound times 2
     lr = 1e-2
     
     # lazy example (might not be perfect), just draw random A

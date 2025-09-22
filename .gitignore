@@ -5,6 +5,8 @@ __pycache__/
 *.history/
 # C extensions
 *.so
+*.out
+*.pickle
 
 # Distribution / packaging
 .Python
