@@ -265,6 +265,8 @@ def main():
         M = int(np.ceil(K * np.log(N / K) * 2)) # Compressed Sensing bound times 2
     lr = 1e-2
     
+    print(f'Parameters: N={N}, K={K}, M={M}, D={D}, num_ood={num_ood}, seed={seed}')
+
     # lazy example (might not be perfect), just draw random A
     np.random.seed(seed)
     # https://en.wikipedia.org/wiki/Restricted_isometry_property
