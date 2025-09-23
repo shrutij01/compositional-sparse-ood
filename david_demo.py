@@ -223,17 +223,6 @@ def main():
     parser.add_argument(
         '--supervised', action='store_true', 
         help='Flag to run in supervised mode.')
-    parser.add_argument(
-        '--seed', type=int, default=7012025,
-        help='Random seed for numpy and torch.')
-    parser.add_argument('--n', type=int, default=100,
-                        help='Number of sources.')
-    parser.add_argument('--m', type=int, default=None,
-                        help='Number of observed variables.')
-    parser.add_argument('--k', type=int, default=10,
-                        help='Sparsity level.')
-    parser.add_argument('--n_points', type=int, default=1000,
-                        help='Number of points.')
     ### Setting ###
     # Sparse code (supervised) setting:
     # 1) infer Z_iid_ and Z_ood_
@@ -252,18 +241,17 @@ def main():
     print(f'device {device}, lambda={lam:.6e}, supervised={supervised}')
     
     # Parameters
-    seed = args.seed
+    seed = 7012025
     C = np.inf # no regularisation for lin. regression
     power = 1 # uniform density
-    D = args.n_points # number of data samples
-    N = args.n # number of sources
-    K = args.k # sparsity
+    D = 1000 # number of data samples
+    N = 100 # number of sources
+    K = 10 # sparsity
     num_ood = N // 2 # how many new OOD sources
-    # M = int(np.ceil(K * np.log(N / K) * 2)) # Compressed Sensing bound times 2
-    M = args.m
-    if M is None:
-        M = int(np.ceil(K * np.log(N / K) * 2)) # Compressed Sensing bound times 2
+    M = int(np.ceil(K * np.log(N / K) * 2)) # Compressed Sensing bound times 2
     lr = 1e-2
+
+    print(f'Parameters: N={N}, K={K}, M={M}, D={D}, num_ood={num_ood}, seed={seed}')
     
     # lazy example (might not be perfect), just draw random A
     np.random.seed(seed)
@@ -339,9 +327,7 @@ def main():
         'mse_iid': [], 'mse_ood': [], 
         'l1_iid': [], 'l1_ood': [], 
         'mcc_iid': [], 'mcc_ood': [], 
-        'auc_iid': [], 'auc_ood': [],
-        # metadata for convenience
-        'seed': seed, 'supervised': supervised, 'M': M, 'K': K, 'D': D, 'N': N
+        'auc_iid': [], 'auc_ood': []
     }
     run_loss = []
     for i in tqdm(range(max_steps + 1)):
@@ -434,11 +420,7 @@ def main():
     log['A_'] = A_.detach().cpu().numpy()
     
     # Save the single result dictionary to a unique file
-    # Include seed, m (M), k (K), and npoints (D) in filename for disambiguation
-    filename = (
-        f'results_seed={seed}_supervised={supervised}_lambda={lam:.4e}'
-        f'_m={M}_k={K}_npoints={D}_n={N}.pickle'
-    )
+    filename = f'results_supervised={supervised}_lambda={lam:.4e}.pickle'
     with open(filename, 'wb') as handle:
         pickle.dump(log, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
