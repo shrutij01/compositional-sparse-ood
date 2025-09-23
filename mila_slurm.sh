@@ -14,6 +14,10 @@ source activate research
 
 # python david_demo.py --seed $1 --n $2
 
+# python david_demo.py --seed $1 --n $2 --m 47
+
 # python david_demo.py --seed $1 --m $2
 
-python david_demo.py --seed $1 --k $2
+# python david_demo.py --seed $1 --k $2
+
+python david_demo.py --seed $1 --k $2 --m 47
