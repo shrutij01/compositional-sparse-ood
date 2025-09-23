@@ -150,13 +150,31 @@ class AdaptiveLR(object):
 
 ### Simulation ###
 def sample_comb(ind, N, K, power):
-    """Given K indices, sample sources."""
+    """Given K indices, sample sources.
+    Samples K elements from U(0,1)^power.
+    """
     z = np.zeros(N)
     z[ind] = np.random.uniform(0, 1, K) ** power
     return z
 
 def sample_setting_a(N, K, num_ood, power, seed=None):
-    """Include the first index and sample randomly from IID sources."""
+    """Include the first index and sample randomly from IID sources.
+    Setting (a): include index 0 and sample the rest from IID sources.
+
+        Description:
+        - Always activates the variable of interest at index 0.
+        - Fills the remaining K-1 active indices by sampling from the in-distribution
+            pool: indices [1, N - num_ood).
+        - The OOD pool is the tail segment [N - num_ood, N), which is excluded here.
+        - Magnitudes for active indices are drawn as U(0, 1) ** power.
+
+        Args:
+            N: total number of sources.
+            K: sparsity level (number of active sources).
+            num_ood: number of OOD sources at the tail of [0, N).
+            power: exponent shaping the magnitude distribution.
+            seed: optional RNG seed for reproducibility.
+    """
     if seed is not None:
         np.random.seed(seed)
     # Select K-1 indices from the in-distribution sources (excluding the first one)
@@ -168,7 +186,20 @@ def sample_setting_a(N, K, num_ood, power, seed=None):
     return z
 
 def sample_setting_b(N, K, power, seed=None):
-    """Sample randomly from all sources except the first one."""
+    """Sample randomly from all sources except the first one.
+    Setting (b): exclude index 0 and sample K from indices [1, N).
+
+        Description:
+        - Draws K active indices from the full pool excluding index 0: [1, N).
+            This pool may contain both IID and OOD sources if num_ood > 0.
+        - Magnitudes for active indices are drawn as U(0, 1) ** power.
+
+        Args:
+            N: total number of sources.
+            K: sparsity level (number of active sources).
+            power: exponent shaping the magnitude distribution.
+            seed: optional RNG seed for reproducibility.
+    """
     if seed is not None:
         np.random.seed(seed)
     ind = np.random.choice(np.arange(1, N), K, replace=False)
@@ -176,7 +207,22 @@ def sample_setting_b(N, K, power, seed=None):
     return z
 
 def sample_setting_c(N, K, num_ood, power, seed=None):
-    """Include the first index and sample randomly from OOD sources."""
+    """Include the first index and sample randomly from OOD sources.
+    Setting (c): include index 0 and sample the rest from OOD sources.
+
+        Description:
+        - Always activates the variable of interest at index 0.
+        - Fills the remaining K-1 active indices by sampling from the OOD pool:
+            indices [N - num_ood, N).
+        - Magnitudes for active indices are drawn as U(0, 1) ** power.
+
+        Args:
+            N: total number of sources.
+            K: sparsity level (number of active sources).
+            num_ood: number of OOD sources at the tail of [0, N).
+            power: exponent shaping the magnitude distribution.
+            seed: optional RNG seed for reproducibility.
+    """
     if seed is not None:
         np.random.seed(seed)
     # Select K-1 indices from the out-of-distribution sources
