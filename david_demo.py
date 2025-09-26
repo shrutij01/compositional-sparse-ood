@@ -234,7 +234,15 @@ def sample_setting_c(N, K, num_ood, power, seed=None):
     return z
 
 def sample_iid(N, K, num_ood, power, seed=None):
-    """Sample only from IID latent combinations."""
+    """Sample only from IID latent combinations.
+    If first source is in the sample, sample setting (a), else setting (b).
+        Description:
+        - Randomly decides whether to include the variable of interest at index 0.
+        - If included, samples the remaining K-1 active indices from the IID pool:
+            indices [1, N - num_ood).
+        - If excluded, samples all K active indices from the full pool excluding index 0: [1, N).
+        - Magnitudes for active indices are drawn as U(0, 1) ** power. 
+    """
     if seed is not None:
         np.random.seed(seed)
     # Decide whether the variable of interest (the first source) is in the sample
