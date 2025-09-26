@@ -38,13 +38,13 @@ nsamples = [500, 1000, 5000, 10000, 50000, 100000]
 #     for samples in nsamples:
 #         os.system("sbatch mila_cpu.sh " + str(seed) + " " + str(samples))
 
-for seed in seeds:
-    for n in ns:
-        os.system("sbatch mila_cpu.sh " + str(seed) + " " + str(n))
+# for seed in seeds:
+#     for n in ns:
+#         os.system("sbatch mila_cpu.sh " + str(seed) + " " + str(n))
 
-for seed in seeds:
-    for m in ms:
-        os.system("sbatch mila_cpu.sh " + str(seed) + " " + str(m))
+# for seed in seeds:
+#     for m in ms:
+#         os.system("sbatch mila_cpu.sh " + str(seed) + " " + str(m))
 
 for seed in seeds:
     for k in ks:
