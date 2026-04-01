@@ -31,7 +31,7 @@ pip install -e .
 
 ## Quick Links
 
-- [Data Generation](data.md) — how the IID/OOD split works
+- [Data Generation](data.md) — how the ID/OOD split works
 - [API Reference](api.md) — models, metrics, and helpers
 
 ## Reproduce Paper Figures

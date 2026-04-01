@@ -96,7 +96,7 @@ Convert numpy arrays to torch tensors and build a DataLoader for training.
 
     ### `pca_codes(Y_iid, Y_ood, n_components)`
 
-    PCA baseline. Fit on IID, project both splits.
+    PCA baseline. Fit on ID, project both splits.
 
     ### `linear_probe_codes(Y_train, Z_train, Y_iid, Y_ood, alphas=(...))`
 
@@ -120,11 +120,11 @@ Sparsity pattern recovery: precision, recall, F1, L0.
 
 ### `evaluate_accuracy(codes_iid, labels_iid, codes_ood, labels_ood) -> dict`
 
-Logistic regression on IID, evaluate on both splits. Returns `{acc_iid, acc_ood}`.
+Logistic regression on ID, evaluate on both splits. Returns `{acc_id, acc_ood}`.
 
 ### `evaluate_auc(codes_iid, labels_iid, codes_ood, labels_ood) -> dict`
 
-Per-feature ROC-AUC: best feature on IID, report both. Returns `{auc_iid, auc_ood}`.
+Per-feature ROC-AUC: best feature on ID, report both. Returns `{auc_id, auc_ood}`.
 
 ### `evaluate_all(codes_iid, labels_iid, codes_ood, labels_ood, Z_true_iid=None, Z_true_ood=None) -> dict`
 
