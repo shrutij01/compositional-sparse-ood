@@ -22,6 +22,13 @@ Under superposition, concepts are linearly *represented* in neural network activ
 ## Install
 
 ```bash
+uv venv && source .venv/bin/activate
+uv pip install -e .
+```
+
+Or with pip:
+
+```bash
 pip install -e .
 ```
 
