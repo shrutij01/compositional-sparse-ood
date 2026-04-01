@@ -2,6 +2,8 @@
 
 Code for **"Stop Probing, Start Coding: Why Linear Probes and Sparse Autoencoders Fail at Compositional Generalisation"** (UAI 2026).
 
+**[Documentation](https://shrutij01.github.io/compositional-sparse-ood/)**
+
 *Vitória Barin Pacela\*, Shruti Joshi\*, Isabela Camacho, Simon Lacoste-Julien, David Klindt*
 
 ## Summary
