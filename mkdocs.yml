@@ -1,5 +1,5 @@
 site_name: Compositional Sparse OOD
-site_description: "Code for: Stop Probing, Start Coding (UAI 2026)"
+site_description: "Code for: Stop Probing, Start Coding"
 site_author: Vitoria Barin Pacela, Shruti Joshi, Isabela Camacho, Simon Lacoste-Julien, David Klindt
 repo_url: https://github.com/shrutij01/compositional-sparse-ood
 repo_name: compositional-sparse-ood
@@ -65,5 +65,6 @@ extra:
 
 nav:
   - Home: index.md
+  - Methods: methods.md
   - Data Generation: data.md
   - API Reference: api.md

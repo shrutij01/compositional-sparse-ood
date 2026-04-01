@@ -1,6 +1,6 @@
 # Compositional Sparse OOD
 
-Code for **"Stop Probing, Start Coding: Why Linear Probes and Sparse Autoencoders Fail at Compositional Generalisation"** (UAI 2026).
+Code for **"Stop Probing, Start Coding: Why Linear Probes and Sparse Autoencoders Fail at Compositional Generalisation"**.
 
 *Vitoria Barin Pacela\*, Shruti Joshi\*, Isabela Camacho, Simon Lacoste-Julien, David Klindt*
 
@@ -75,12 +75,13 @@ Results are saved incrementally to `results/`.
 ## Citation
 
 ```bibtex
-@inproceedings{barinpacela2026stop,
-  title={Stop Probing, Start Coding: Why Linear Probes and Sparse
-         Autoencoders Fail at Compositional Generalisation},
-  author={Barin Pacela, Vit{\'o}ria and Joshi, Shruti and
-          Camacho, Isabela and Lacoste-Julien, Simon and Klindt, David},
-  booktitle={Conference on Uncertainty in Artificial Intelligence (UAI)},
-  year={2026}
+@misc{pacela2026stopprobingstartcoding,
+  title={Stop Probing, Start Coding: Why Linear Probes and Sparse Autoencoders Fail at Compositional Generalisation},
+  author={Vitória Barin Pacela and Shruti Joshi and Isabela Camacho and Simon Lacoste-Julien and David Klindt},
+  year={2026},
+  eprint={2603.28744},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2603.28744},
 }
 ```

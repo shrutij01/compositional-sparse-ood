@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: "If you use this software, please cite the paper below. The first two authors contributed equally."
 title: "Stop Probing, Start Coding: Why Linear Probes and Sparse Autoencoders Fail at Compositional Generalisation"
 type: software
 authors:
@@ -21,3 +21,22 @@ authors:
 date-released: "2025-01-01"
 license: MIT
 repository-code: "https://github.com/shrutij01/compositional-sparse-ood"
+preferred-citation:
+  type: article
+  title: "Stop Probing, Start Coding: Why Linear Probes and Sparse Autoencoders Fail at Compositional Generalisation"
+  authors:
+    - family-names: Barin Pacela
+      given-names: Vitória
+    - family-names: Joshi
+      given-names: Shruti
+    - family-names: Camacho
+      given-names: Isabela
+    - family-names: Lacoste-Julien
+      given-names: Simon
+    - family-names: Klindt
+      given-names: David
+  year: 2026
+  url: "https://arxiv.org/abs/2603.28744"
+  identifiers:
+    - type: other
+      value: "arXiv:2603.28744"
