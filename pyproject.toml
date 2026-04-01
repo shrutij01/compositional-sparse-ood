@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "compositional-sparse-ood"
+version = "0.1.0"
+description = "Compositional generalisation under superposition: comparing sparse coding, SAEs, and linear probes"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "numpy",
+    "torch",
+    "scipy",
+    "scikit-learn",
+    "matplotlib",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+tracking = ["wandb"]
+
+[tool.setuptools.packages.find]
+include = ["src*", "models*", "utils*"]

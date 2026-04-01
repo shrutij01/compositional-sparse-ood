@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Stop Probing, Start Coding: Why Linear Probes and Sparse Autoencoders Fail at Compositional Generalisation"
+type: software
+authors:
+  - family-names: Barin Pacela
+    given-names: Vitória
+    affiliation: "Mila - Québec AI Institute & Université de Montréal"
+  - family-names: Joshi
+    given-names: Shruti
+    affiliation: "Mila - Québec AI Institute & Université de Montréal"
+  - family-names: Camacho
+    given-names: Isabela
+    affiliation: "Santa Clara University"
+  - family-names: Lacoste-Julien
+    given-names: Simon
+    affiliation: "Mila - Québec AI Institute & Université de Montréal"
+  - family-names: Klindt
+    given-names: David
+    affiliation: "Helmholtz Munich"
+date-released: "2025-01-01"
+license: MIT
+repository-code: "https://github.com/shrutij01/compositional-sparse-ood"
