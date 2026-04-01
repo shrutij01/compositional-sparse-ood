@@ -4,24 +4,34 @@ Code for **"Stop Probing, Start Coding: Why Linear Probes and Sparse Autoencoder
 
 *Vitoria Barin Pacela\*, Shruti Joshi\*, Isabela Camacho, Simon Lacoste-Julien, David Klindt*
 
-## Key findings
+## Overview
 
-- **Per-sample sparse inference** (FISTA with the ground-truth dictionary) achieves near-perfect OOD compositional generalisation at all scales tested.
-- **SAEs** fail because their learned dictionaries point in wrong directions — replacing the encoder with FISTA on the same dictionary does not help.
-- **Linear probes** degrade sharply under superposition (MCC < 0.1 at $d_z$ = 10,000).
-- **Dictionary learning** is the bottleneck: DL-FISTA beats linear probes when it succeeds but fails at scale.
+Under superposition, concepts are linearly *represented* in neural network activations but not linearly *accessible*. We compare sparse coding, SAEs, and linear probes on compositional OOD generalisation.
 
-## Quick start
+| Method | OOD generalisation | Why |
+|--------|-------------------|-----|
+| FISTA (oracle dictionary) | Near-perfect at all scales | Per-sample sparse inference solves the right problem |
+| SAEs (ReLU, TopK, JumpReLU) | Fail | Learned dictionaries point in wrong directions |
+| Linear probes | Degrade sharply | MCC < 0.1 at $d_z$ = 10,000 under superposition |
+| DL-FISTA | Beats probes, fails at scale | Dictionary learning is the bottleneck |
+
+## Quick Start
 
 ```bash
 pip install -e .
 ```
 
-Requires Python >= 3.10 and PyTorch.
+!!! tip "Requirements"
+    Python >= 3.10 and PyTorch.
 
-## Reproducing paper figures
+## Quick Links
 
-All results are pre-computed in `results/`. To regenerate figures:
+- [Data Generation](data.md) — how the IID/OOD split works
+- [API Reference](api.md) — models, metrics, and helpers
+
+## Reproduce Paper Figures
+
+All results are pre-computed in `results/`. To regenerate:
 
 ```bash
 # Main text + appendix figures
@@ -31,27 +41,29 @@ python experiments/plotting/plot_paper_figures.py --only v2
 python experiments/plotting/plot_controlled.py
 ```
 
-Figures are saved to `paper_figures/`.
+## Run Experiments
 
-## Running experiments
+=== "Sensitivity"
 
-### Sensitivity (vary one parameter)
+    Vary one parameter, hold others fixed:
 
-```bash
-python experiments/sensitivity/exp_vary_latents.py
-python experiments/sensitivity/exp_vary_samples.py
-python experiments/sensitivity/exp_vary_sparsity.py
-```
+    ```bash
+    python experiments/sensitivity/exp_vary_latents.py
+    python experiments/sensitivity/exp_vary_samples.py
+    python experiments/sensitivity/exp_vary_sparsity.py
+    ```
 
-### Controlled (decompose SAE failure)
+=== "Controlled"
 
-```bash
-python experiments/controlled/exp_dict_quality.py
-python experiments/controlled/exp_warmstart_decoder.py
-python experiments/controlled/exp_support_recovery.py
-python experiments/controlled/exp_learning_dynamics.py
-python experiments/controlled/exp_lambda_sensitivity.py
-```
+    Decompose SAE failure:
+
+    ```bash
+    python experiments/controlled/exp_dict_quality.py       # FISTA on SAE-learned dictionary
+    python experiments/controlled/exp_warmstart_decoder.py   # SAE decoder as DL-FISTA init
+    python experiments/controlled/exp_support_recovery.py    # Sparsity pattern recovery
+    python experiments/controlled/exp_learning_dynamics.py   # Dictionary learning over time
+    python experiments/controlled/exp_lambda_sensitivity.py  # Regularisation sweep
+    ```
 
 Results are saved incrementally to `results/`.
 

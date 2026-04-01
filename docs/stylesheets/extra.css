@@ -1,0 +1,74 @@
+/* Code blocks with accent border */
+.highlight pre {
+  border-left: 4px solid;
+  border-image: linear-gradient(180deg, #009688, #ffc107) 1;
+  box-shadow: 0 4px 12px rgba(0, 150, 136, 0.12);
+}
+
+/* Inline code */
+code:not(.highlight code) {
+  background: rgba(0, 150, 136, 0.08);
+  border-radius: 4px;
+  padding: 0.2em 0.4em;
+  font-weight: 500;
+}
+
+/* Links */
+.md-typeset a {
+  color: #00796b;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.md-typeset a:hover {
+  color: #ffc107;
+}
+
+/* Active tab underline */
+.md-tabs__link--active {
+  border-bottom: 2px solid;
+  border-image: linear-gradient(90deg, #009688, #ffc107) 1;
+}
+
+/* Search glow */
+.md-search__input:focus {
+  box-shadow: 0 0 0 2px rgba(0, 150, 136, 0.3);
+}
+
+/* Admonitions */
+.md-typeset .admonition.tip {
+  border-left-color: #009688;
+}
+
+.md-typeset .admonition.warning {
+  border-left-color: #ffc107;
+}
+
+/* Table headers */
+.md-typeset table:not([class]) th {
+  background: rgba(0, 150, 136, 0.08);
+  font-weight: 600;
+}
+
+/* Dark mode */
+[data-md-color-scheme="slate"] code:not(.highlight code) {
+  background: rgba(0, 150, 136, 0.15);
+  color: #80cbc4;
+}
+
+[data-md-color-scheme="slate"] .highlight pre {
+  border-image: linear-gradient(180deg, #80cbc4, #ffd54f) 1;
+}
+
+[data-md-color-scheme="slate"] .md-typeset a {
+  color: #80cbc4;
+}
+
+[data-md-color-scheme="slate"] .md-typeset a:hover {
+  color: #ffd54f;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
