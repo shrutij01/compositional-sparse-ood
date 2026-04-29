@@ -110,6 +110,8 @@ Usage
     # result["history"]: list of per-step metric dicts
 """
 
+from __future__ import annotations
+
 import json
 import sys
 from dataclasses import asdict, dataclass
