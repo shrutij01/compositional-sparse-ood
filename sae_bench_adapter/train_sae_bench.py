@@ -290,6 +290,7 @@ def main():
     # Phase 3: Run SAEBench sparse probing evaluation
     # -----------------------------------------------------------------------
     config = SparseProbingEvalConfig(model_name=args.model_name)
+    config.random_seed = args.seed
     config.llm_batch_size = llm_batch_size
     config.llm_dtype = llm_dtype_str
     config.lower_vram_usage = args.lower_vram_usage

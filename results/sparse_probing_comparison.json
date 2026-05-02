@@ -1,0 +1,38 @@
+{
+  "dl_fista": {
+    "42": {
+      "sae_test_accuracy": 0.9242687884718179,
+      "llm_test_accuracy": 0.9202187918126583
+    },
+    "1": {
+      "sae_test_accuracy": 0.9223812904208898,
+      "llm_test_accuracy": 0.9208625424653292
+    },
+    "2": {
+      "sae_test_accuracy": 0.9246437914669513,
+      "llm_test_accuracy": 0.9252312932163478
+    },
+    "sae_test_accuracy_mean": 0.9237646234532196,
+    "sae_test_accuracy_se": 0.000700086785177618,
+    "llm_test_accuracy_mean": 0.9221042091647784,
+    "llm_test_accuracy_se": 0.0015745469956877684
+  },
+  "std_sae": {
+    "42": {
+      "sae_test_accuracy": 0.9222750484943391,
+      "llm_test_accuracy": 0.9223750397562981
+    },
+    "1": {
+      "sae_test_accuracy": 0.9217000409960747,
+      "llm_test_accuracy": 0.9211250394582748
+    },
+    "2": {
+      "sae_test_accuracy": 0.922437545657158,
+      "llm_test_accuracy": 0.9217500388622285
+    },
+    "sae_test_accuracy_mean": 0.9221375450491905,
+    "sae_test_accuracy_se": 0.00022372503909237366,
+    "llm_test_accuracy_mean": 0.9217500393589337,
+    "llm_test_accuracy_se": 0.00036084400427550224
+  }
+}

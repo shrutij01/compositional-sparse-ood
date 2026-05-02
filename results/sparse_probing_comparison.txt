@@ -1,0 +1,20 @@
+SPARSE PROBING COMPARISON — pythia-70m-deduped, layer 4, seeds 42/1/2
+
+Methods:
+  dl_fista : DL-FISTA sparse coding (d_sae=2048, lam=0.1)
+  std_sae  : SAEBench standard sweep trainer_0 (res-4k ~4096 features)
+  linear   : linear probe on full LLM residual stream
+
+Per-seed sae_test_accuracy:
+  Method        seed=42  seed=1  seed=2
+  dl_fista      0.9243  0.9224  0.9246
+  std_sae       0.9223  0.9217  0.9224
+
+Per-seed llm_test_accuracy (linear probe):
+  linear (dl_fista)     0.9202  0.9209  0.9252
+  linear (std_sae)      0.9224  0.9211  0.9218
+
+Mean ± SE across seeds:
+  Metric                          dl_fista                    std_sae                     linear_probe              
+  SAE test accuracy               0.9238 ± 0.0007             0.9221 ± 0.0002             (same as above)           
+  Linear probe accuracy           0.9221 ± 0.0016             0.9218 ± 0.0004             0.9221 ± 0.0016           
