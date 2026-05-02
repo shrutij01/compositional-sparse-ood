@@ -16,15 +16,17 @@
 #   LAM           L1 sparsity weight                 (default: 0.1)
 #   N_TRAIN       tokens for dict training           (default: 50000)
 #   MAX_STEPS     training steps / outer iterations  (default: 5000)
+#   SEED          random seed                        (default: 42)
 #   OUTPUT_DIR    results directory                  (default: results/saebench_sparse_probing)
 
 #SBATCH --job-name=sparse_probing_saebench
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=6:00:00
+#SBATCH --time=10:00:00
 #SBATCH --gres=gpu:1
-#SBATCH --output=logs/sparse_probing_%j_%x.out
-#SBATCH --error=logs/sparse_probing_%j_%x.err
+#SBATCH --exclude=cn-b001,cn-b002,cn-b003,cn-b004,cn-b005,cn-e002,cn-e003
+#SBATCH --output=/network/scratch/v/vitoria.barin-pacela/sparse_ood/logs/sparse_probing_%j_%x.out
+#SBATCH --error=/network/scratch/v/vitoria.barin-pacela/sparse_ood/logs/sparse_probing_%j_%x.err
 
 # ---- defaults (override via --export at sbatch time) ----
 METHOD="${METHOD:-dl_fista}"
@@ -34,11 +36,16 @@ D_SAE="${D_SAE:-2048}"
 LAM="${LAM:-0.1}"
 N_TRAIN="${N_TRAIN:-50000}"
 MAX_STEPS="${MAX_STEPS:-5000}"
+SEED="${SEED:-42}"
 OUTPUT_DIR="${OUTPUT_DIR:-results/saebench_sparse_probing}"
+FORCE_RERUN="${FORCE_RERUN:-1}"  # set to 0 to reuse cached dictionary on disk
 
 # ---- environment ----
 cd /home/mila/v/vitoria.barin-pacela/sparse_ood
 source .venv/bin/activate
+if [ -n "$HF_TOKEN" ]; then
+    export HUGGING_FACE_HUB_TOKEN="$HF_TOKEN"
+fi
 
 mkdir -p logs
 mkdir -p "$OUTPUT_DIR"
@@ -52,8 +59,14 @@ echo "  d_sae       : $D_SAE"
 echo "  lam         : $LAM"
 echo "  n_train_tok : $N_TRAIN"
 echo "  max_steps   : $MAX_STEPS"
+echo "  seed        : $SEED"
 echo "  Output dir  : $OUTPUT_DIR"
 echo "=============================================="
+
+FORCE_FLAG=""
+if [ "$FORCE_RERUN" = "1" ]; then
+    FORCE_FLAG="--force_rerun"
+fi
 
 python sae_bench_adapter/train_sae_bench.py \
     --model_name    "$MODEL"      \
@@ -63,8 +76,8 @@ python sae_bench_adapter/train_sae_bench.py \
     --lam           "$LAM"        \
     --n_train_tokens "$N_TRAIN"   \
     --max_steps     "$MAX_STEPS"  \
+    --seed          "$SEED"       \
     --output_dir    "$OUTPUT_DIR" \
-    --save_activations            \
-    --force_rerun
+    $FORCE_FLAG
 
 echo "Job finished."

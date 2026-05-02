@@ -2,6 +2,7 @@
 
 import json
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -115,11 +116,15 @@ def run_all_saes(
             kval_topk=k if sae_type == "topk" else None,
             mp_kval=k if sae_type == "MP" else None,
         )
+        t0 = time.time()
         sae_out = train_sae(sae, train_loader, X_iid, X_ood, device, sae_cfg)
-        results.append(eval_and_tag(
+        runtime_s = time.time() - t0
+        row = eval_and_tag(
             sae_out["codes_iid"], sae_out["codes_ood"],
             data, f"sae_{sae_type}", **tag,
-        ))
+        )
+        row["runtime_s"] = runtime_s
+        results.append(row)
     return results
 
 
@@ -147,27 +152,30 @@ def run_sparse_coding_methods(data, A, input_dim, num_latents, sc_lam,
         max_steps=sc_max_steps, n_iter=100, dict_update_every=50,
         supervised=True, seed=seed, print_every=sc_max_steps,
     )
+    t0 = time.time()
     sc_out = train_sparse_coding(X_iid, X_ood, sc_cfg, A=A, device=device)
-    results.append(eval_and_tag(
-        sc_out["codes_iid"], sc_out["codes_ood"], data, "fista_oracle", **tag,
-    ))
+    row = eval_and_tag(sc_out["codes_iid"], sc_out["codes_ood"], data, "fista_oracle", **tag)
+    row["runtime_s"] = time.time() - t0
+    results.append(row)
 
     # Dictionary Learning + FISTA (alternating: FISTA inference + LS dict update)
     print("  Training DL-FISTA...")
     sc_cfg.supervised = False
+    t0 = time.time()
     sc_out = train_sparse_coding(X_iid, X_ood, sc_cfg, device=device)
-    results.append(eval_and_tag(
-        sc_out["codes_iid"], sc_out["codes_ood"], data, "dl_fista", **tag,
-    ))
+    row = eval_and_tag(sc_out["codes_iid"], sc_out["codes_ood"], data, "dl_fista", **tag)
+    row["runtime_s"] = time.time() - t0
+    results.append(row)
 
     # Softplus-Adam (joint code + dict optimization with softplus parameterization)
     print("  Training Softplus-Adam...")
     sc_cfg.method = "direct"
     sc_cfg.supervised = False
+    t0 = time.time()
     sc_out = train_sparse_coding(X_iid, X_ood, sc_cfg, device=device)
-    results.append(eval_and_tag(
-        sc_out["codes_iid"], sc_out["codes_ood"], data, "softplus_adam", **tag,
-    ))
+    row = eval_and_tag(sc_out["codes_iid"], sc_out["codes_ood"], data, "softplus_adam", **tag)
+    row["runtime_s"] = time.time() - t0
+    results.append(row)
 
     return results
 

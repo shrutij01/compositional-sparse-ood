@@ -236,8 +236,12 @@ def main():
         result = train_sparse_coding(X_iid, X_ood, cfg, device=torch.device(device))
         dictionary = result["dictionary"]  # (d_model, d_sae)
 
-        np.save(dict_path, dictionary)
-        print(f"Dictionary saved to {dict_path} | shape={dictionary.shape}")
+        try:
+            np.save(dict_path, dictionary)
+            print(f"Dictionary saved to {dict_path} | shape={dictionary.shape}", flush=True)
+        except OSError as _save_err:
+            print(f"Warning: could not save dictionary to {dict_path} ({_save_err}); "
+                  "continuing with in-memory dictionary.", flush=True)
 
     # -----------------------------------------------------------------------
     # Phase 2: Create the SAEBench-compatible adapter
@@ -292,27 +296,88 @@ def main():
 
     selected_saes = [(sae_label, sae)]
 
-    eval_output_dir = str(output_dir / "sparse_probing")
-    os.makedirs(eval_output_dir, exist_ok=True)
+    # Write eval output to /tmp (local disk) to avoid Lustre write failures on
+    # long-running jobs, then copy the JSON to the final Lustre destination.
+    import tempfile, shutil, json as _json, sys as _sys
+    tmp_eval_dir = tempfile.mkdtemp(prefix="sparse_probing_eval_")
+    final_eval_dir = output_dir / "sparse_probing"
+    final_eval_dir.mkdir(parents=True, exist_ok=True)
 
-    artifacts_path = str(output_dir / "artifacts")
+    # Per-dataset checkpointing: monkey-patch run_eval_single_dataset so partial
+    # results survive job timeout. Resubmitting with the same OUTPUT_DIR skips
+    # already-finished datasets.
+    import sae_bench.evals.sparse_probing.main as _sb_main
+    _ckpt_path = output_dir / "eval_checkpoint.json"
+    _ckpt = {"dataset_results": {}, "per_class_dict": {}}
+    if _ckpt_path.exists():
+        try:
+            with open(_ckpt_path) as f:
+                _ckpt = _json.load(f)
+            print(f"[checkpoint] Resuming with {len(_ckpt['dataset_results'])} datasets cached: "
+                  f"{list(_ckpt['dataset_results'].keys())}", flush=True)
+        except Exception as _e:
+            print(f"[checkpoint] Could not load {_ckpt_path}: {_e}; starting fresh", flush=True)
+
+    _orig_single_dataset = _sb_main.run_eval_single_dataset
+
+    def _ckpt_single_dataset(dataset_name, *a, **kw):
+        cache_key = f"{dataset_name}_results"
+        if cache_key in _ckpt["dataset_results"]:
+            print(f"[checkpoint] Skipping cached: {dataset_name}", flush=True)
+            return _ckpt["dataset_results"][cache_key], _ckpt["per_class_dict"][cache_key]
+        print(f"[checkpoint] Running: {dataset_name}", flush=True)
+        ds_result, pc_result = _orig_single_dataset(dataset_name, *a, **kw)
+        _ckpt["dataset_results"][cache_key] = ds_result
+        _ckpt["per_class_dict"][cache_key] = pc_result
+        try:
+            with open(_ckpt_path, "w") as f:
+                _json.dump(_ckpt, f, default=str, indent=2)
+            print(f"[checkpoint] Saved {len(_ckpt['dataset_results'])}/8 datasets", flush=True)
+        except Exception as _e:
+            print(f"[checkpoint] Warning: save failed: {_e}", flush=True)
+        return ds_result, pc_result
+
+    _sb_main.run_eval_single_dataset = _ckpt_single_dataset
 
     print(f"\nRunning sparse probing eval on {args.model_name}, layer {args.hook_layer} ...")
+    print(f"Eval temp dir: {tmp_eval_dir}", flush=True)
+    print(f"Checkpoint: {_ckpt_path}", flush=True)
     results = run_eval(
         config,
         selected_saes,
         device,
-        eval_output_dir,
+        tmp_eval_dir,
         force_rerun=args.force_rerun,
         clean_up_activations=False,
-        save_activations=args.save_activations,
-        artifacts_path=artifacts_path,
+        save_activations=False,  # never cache activations to avoid large Lustre writes
+        artifacts_path=tmp_eval_dir,
     )
 
-    print(f"\nDone in {time.time() - t0:.1f}s")
-    print(f"Results written to: {eval_output_dir}")
+    print(f"\nDone in {time.time() - t0:.1f}s", flush=True)
+
+    # Print results to stdout so they're captured in the SLURM log even if
+    # the file copy to Lustre fails.
+    print("\n=== EVAL RESULTS ===", flush=True)
     for key, val in results.items():
-        print(f"  {key}")
+        try:
+            print(_json.dumps({key: val}, default=str), flush=True)
+        except Exception:
+            print(f"  {key}: {val}", flush=True)
+    print("=== END EVAL RESULTS ===", flush=True)
+
+    # Copy JSON files from /tmp to final Lustre destination.
+    copied = []
+    for json_file in Path(tmp_eval_dir).glob("*.json"):
+        dst = final_eval_dir / json_file.name
+        try:
+            shutil.copy2(str(json_file), str(dst))
+            copied.append(str(dst))
+        except OSError as _e:
+            print(f"Warning: could not copy {json_file.name} to Lustre ({_e}). "
+                  "Results are in stdout above.", flush=True)
+    print(f"Results copied to: {final_eval_dir}" if copied else
+          f"No JSON files copied (check stdout for results)", flush=True)
+    shutil.rmtree(tmp_eval_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

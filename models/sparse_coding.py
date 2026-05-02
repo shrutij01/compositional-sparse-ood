@@ -562,6 +562,8 @@ def _train_iterative(
     """
     infer = fista if use_momentum else ista
     nonneg = use_momentum  # FISTA uses nonneg, ISTA does not
+    X_iid = X_iid.to(torch.float32)
+    X_ood = X_ood.to(torch.float32)
     D = D_init.clone().to(device)
     history = []
 
