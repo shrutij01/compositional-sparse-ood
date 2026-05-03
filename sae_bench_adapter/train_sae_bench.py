@@ -171,6 +171,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--train_dataset", type=str, default="NeelNanda/pile-10k",
                    help="HuggingFace dataset to collect training activations from")
 
+    # Per-dataset parallelism: when set, run eval on only this dataset and
+    # write the result to OUTPUT_DIR/per_dataset/<safe_name>.json. Multiple
+    # such jobs can run concurrently for different datasets without races.
+    p.add_argument("--dataset_filter", type=str, default=None,
+                   help="If set, eval only this single dataset and write to per_dataset/<name>.json")
+
     return p.parse_args()
 
 
@@ -304,45 +310,44 @@ def main():
     final_eval_dir = output_dir / "sparse_probing"
     final_eval_dir.mkdir(parents=True, exist_ok=True)
 
-    # Per-dataset checkpointing: monkey-patch run_eval_single_dataset so partial
-    # results survive job timeout. Resubmitting with the same OUTPUT_DIR skips
-    # already-finished datasets.
-    import sae_bench.evals.sparse_probing.main as _sb_main
-    _ckpt_path = output_dir / "eval_checkpoint.json"
-    _ckpt = {"dataset_results": {}, "per_class_dict": {}}
-    if _ckpt_path.exists():
-        try:
-            with open(_ckpt_path) as f:
-                _ckpt = _json.load(f)
-            print(f"[checkpoint] Resuming with {len(_ckpt['dataset_results'])} datasets cached: "
-                  f"{list(_ckpt['dataset_results'].keys())}", flush=True)
-        except Exception as _e:
-            print(f"[checkpoint] Could not load {_ckpt_path}: {_e}; starting fresh", flush=True)
+    # Filter to a single dataset for parallel per-(seed, dataset) jobs.
+    if args.dataset_filter:
+        config.dataset_names = [args.dataset_filter]
+        print(f"[filter] Running only dataset: {args.dataset_filter}", flush=True)
 
+    # Per-dataset result files (race-free): each dataset writes to its own
+    # file under output_dir/per_dataset/. Aggregation reads the directory.
+    per_dataset_dir = output_dir / "per_dataset"
+    per_dataset_dir.mkdir(parents=True, exist_ok=True)
+
+    def _safe(name: str) -> str:
+        return name.replace("/", "_")
+
+    import sae_bench.evals.sparse_probing.main as _sb_main
     _orig_single_dataset = _sb_main.run_eval_single_dataset
 
-    def _ckpt_single_dataset(dataset_name, *a, **kw):
-        cache_key = f"{dataset_name}_results"
-        if cache_key in _ckpt["dataset_results"]:
-            print(f"[checkpoint] Skipping cached: {dataset_name}", flush=True)
-            return _ckpt["dataset_results"][cache_key], _ckpt["per_class_dict"][cache_key]
-        print(f"[checkpoint] Running: {dataset_name}", flush=True)
+    def _per_ds_single_dataset(dataset_name, *a, **kw):
+        pd_path = per_dataset_dir / f"{_safe(dataset_name)}.json"
+        if pd_path.exists() and not args.force_rerun:
+            print(f"[per_dataset] Loading cached: {pd_path}", flush=True)
+            cached = _json.load(open(pd_path))
+            return cached["dataset_results"], cached["per_class_dict"]
+        print(f"[per_dataset] Running: {dataset_name}", flush=True)
         ds_result, pc_result = _orig_single_dataset(dataset_name, *a, **kw)
-        _ckpt["dataset_results"][cache_key] = ds_result
-        _ckpt["per_class_dict"][cache_key] = pc_result
         try:
-            with open(_ckpt_path, "w") as f:
-                _json.dump(_ckpt, f, default=str, indent=2)
-            print(f"[checkpoint] Saved {len(_ckpt['dataset_results'])}/8 datasets", flush=True)
+            with open(pd_path, "w") as f:
+                _json.dump({"dataset_results": ds_result, "per_class_dict": pc_result},
+                           f, default=str, indent=2)
+            print(f"[per_dataset] Saved {pd_path}", flush=True)
         except Exception as _e:
-            print(f"[checkpoint] Warning: save failed: {_e}", flush=True)
+            print(f"[per_dataset] Warning: save failed: {_e}", flush=True)
         return ds_result, pc_result
 
-    _sb_main.run_eval_single_dataset = _ckpt_single_dataset
+    _sb_main.run_eval_single_dataset = _per_ds_single_dataset
 
     print(f"\nRunning sparse probing eval on {args.model_name}, layer {args.hook_layer} ...")
     print(f"Eval temp dir: {tmp_eval_dir}", flush=True)
-    print(f"Checkpoint: {_ckpt_path}", flush=True)
+    print(f"Per-dataset dir: {per_dataset_dir}", flush=True)
     results = run_eval(
         config,
         selected_saes,

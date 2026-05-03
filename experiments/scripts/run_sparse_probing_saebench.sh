@@ -22,7 +22,7 @@
 #SBATCH --job-name=sparse_probing_saebench
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=10:00:00
+#SBATCH --time=12:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --exclude=cn-b001,cn-b002,cn-b003,cn-b004,cn-b005,cn-e002,cn-e003
 #SBATCH --output=/network/scratch/v/vitoria.barin-pacela/sparse_ood/logs/sparse_probing_%j_%x.out
