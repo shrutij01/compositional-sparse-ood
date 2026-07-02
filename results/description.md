@@ -1,0 +1,4 @@
+- saebench_sparse_probing_topk contains the baseline (SAE and linear probes) for the gemma dataset
+- DL-FISTA results on gemma dataset are in `/home/mila/v/vitoria.barin-pacela/scratch/sparse_ood/results/saebench_sparse_probing/`
+- saebench_sparse_probing_std contains the baseline (SAE and linear probes) for the pythia dataset
+- saebench_sparse_probing/sparse_probing has DL-FISTA results on the pythia dataset. This seem to contain only one seed, I don't know where are the others.
